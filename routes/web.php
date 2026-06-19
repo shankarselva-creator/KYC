@@ -1,0 +1,42 @@
+<?php
+
+use App\Http\Controllers\Api\AccountController;
+use App\Http\Controllers\Api\OrderController;
+use App\Http\Controllers\Api\PositionController;
+use App\Http\Controllers\Api\QuoteController;
+use App\Http\Controllers\Auth\AuthenticatedSessionController;
+use App\Http\Controllers\Auth\RegisteredUserController;
+use App\Http\Controllers\DashboardController;
+use Illuminate\Support\Facades\Route;
+
+Route::get('/', fn () => redirect()->route('terminal'));
+
+// ---------------------------------------------------------------------------
+// Guest auth routes
+// ---------------------------------------------------------------------------
+Route::middleware('guest')->group(function () {
+    Route::get('/register', [RegisteredUserController::class, 'create'])->name('register');
+    Route::post('/register', [RegisteredUserController::class, 'store']);
+
+    Route::get('/login', [AuthenticatedSessionController::class, 'create'])->name('login');
+    Route::post('/login', [AuthenticatedSessionController::class, 'store']);
+});
+
+// ---------------------------------------------------------------------------
+// Authenticated routes
+// ---------------------------------------------------------------------------
+Route::middleware('auth')->group(function () {
+    Route::post('/logout', [AuthenticatedSessionController::class, 'destroy'])->name('logout');
+
+    Route::get('/terminal', [DashboardController::class, 'terminal'])->name('terminal');
+    Route::get('/history', [DashboardController::class, 'history'])->name('history');
+
+    // JSON API consumed by the web terminal (session-authenticated, CSRF-protected).
+    Route::prefix('api')->name('api.')->group(function () {
+        Route::get('/quotes', [QuoteController::class, 'index'])->name('quotes');
+        Route::get('/account', [AccountController::class, 'show'])->name('account');
+        Route::get('/positions', [PositionController::class, 'index'])->name('positions');
+        Route::post('/orders', [OrderController::class, 'store'])->name('orders.store');
+        Route::post('/positions/{position}/close', [PositionController::class, 'close'])->name('positions.close');
+    });
+});
