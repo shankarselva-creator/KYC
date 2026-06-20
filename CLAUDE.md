@@ -65,6 +65,9 @@ app/
 - 30 technical indicators via a categorized menu (Trend / Oscillators / Volumes /
   Bill Williams). Most are KLineCharts built-ins; Ichimoku, Alligator, Stochastic
   and Market Facilitation Index are registered as custom indicators in the view.
+- Drawing tools via a left toolbar: lines (horizontal/vertical/trend/ray/extended),
+  price line, equidistant & price channels, Fibonacci, plus custom-registered
+  rectangle, circle, triangle, arrow and text overlays; "remove all" clears them.
 
 ### Trading engine
 
@@ -152,8 +155,7 @@ Seeded demo login: `trader@example.com` / `password`.
 
 ## Roadmap (not yet built)
 
-Chart drawing tools (trendlines, channels, Fibonacci, shapes), WebSocket
-streaming prices, toolbox Journal tab, multiple accounts per user,
+WebSocket streaming prices, toolbox Journal tab, multiple accounts per user,
 deposits/withdrawals UI, swap/commission accrual.
 
 ---

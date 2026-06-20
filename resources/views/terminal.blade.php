@@ -134,8 +134,9 @@
         </section>
 
         {{-- Chart (center) --}}
-        <section class="col-span-12 lg:col-span-6 bg-panel flex flex-col overflow-hidden">
-            <div id="chart" class="flex-1 w-full min-h-0"></div>
+        <section class="col-span-12 lg:col-span-6 bg-panel flex overflow-hidden">
+            <div id="draw-toolbar" class="w-9 shrink-0 border-r border-edge flex flex-col items-center py-1 gap-0.5 overflow-auto text-sm"></div>
+            <div id="chart" class="flex-1 min-w-0 min-h-0"></div>
         </section>
 
         {{-- Market Watch (right) --}}
@@ -712,7 +713,9 @@
     // ---- Charting (KLineCharts) ----
     function initChart() {
         registerCustomIndicators();
+        registerCustomOverlays();
         chart = klinecharts.init('chart');
+        window.__chart = chart;
         chart.setStyles({
             grid: { horizontal: { color: '#2a323d' }, vertical: { color: '#2a323d' } },
             candle: {
@@ -959,6 +962,123 @@
     });
     document.addEventListener('click', () => document.getElementById('ind-menu').classList.add('hidden'));
 
+    // ---- Drawing tools (KLineCharts overlays) ----
+    const DRAW_TOOLS = [
+        { name: 'cursor', glyph: '⤡', title: 'Cursor (no tool)' },
+        { name: 'horizontalStraightLine', glyph: '─', title: 'Horizontal line' },
+        { name: 'verticalStraightLine', glyph: '│', title: 'Vertical line' },
+        { name: 'segment', glyph: '╱', title: 'Trend line' },
+        { name: 'rayLine', glyph: '→', title: 'Ray' },
+        { name: 'straightLine', glyph: '↔', title: 'Extended line' },
+        { name: 'priceLine', glyph: 'P', title: 'Price line' },
+        { name: 'parallelStraightLine', glyph: '∥', title: 'Equidistant channel' },
+        { name: 'priceChannelLine', glyph: '≣', title: 'Price channel' },
+        { name: 'fibonacciLine', glyph: 'F', title: 'Fibonacci retracement' },
+        { name: 'rect', glyph: '▭', title: 'Rectangle' },
+        { name: 'circle', glyph: '◯', title: 'Circle' },
+        { name: 'triangle', glyph: '△', title: 'Triangle' },
+        { name: 'arrow', glyph: '➜', title: 'Arrow' },
+        { name: 'text', glyph: 'T', title: 'Text label' },
+        { name: 'remove', glyph: '🗑', title: 'Remove all drawings' },
+    ];
+    let activeTool = 'cursor';
+
+    function registerCustomOverlays() {
+        if (!window.klinecharts || window.__overlaysRegistered) return;
+        window.__overlaysRegistered = true;
+        const reg = klinecharts.registerOverlay;
+        const BLUE = '#3b82f6';
+
+        reg({
+            name: 'rect', totalStep: 3,
+            createPointFigures: ({ coordinates }) => {
+                if (coordinates.length < 2) return [];
+                const [a, b] = coordinates;
+                return [{ type: 'polygon', attrs: { coordinates: [{ x: a.x, y: a.y }, { x: b.x, y: a.y }, { x: b.x, y: b.y }, { x: a.x, y: b.y }] }, styles: { style: 'stroke', borderColor: BLUE } }];
+            },
+        });
+        reg({
+            name: 'circle', totalStep: 3,
+            createPointFigures: ({ coordinates }) => {
+                if (coordinates.length < 2) return [];
+                const [c, e] = coordinates;
+                const r = Math.hypot(e.x - c.x, e.y - c.y);
+                return [{ type: 'circle', attrs: { x: c.x, y: c.y, r }, styles: { style: 'stroke', borderColor: BLUE } }];
+            },
+        });
+        reg({
+            name: 'triangle', totalStep: 4,
+            createPointFigures: ({ coordinates }) => {
+                if (coordinates.length < 3) return [];
+                return [{ type: 'polygon', attrs: { coordinates: coordinates.slice(0, 3) }, styles: { style: 'stroke', borderColor: BLUE } }];
+            },
+        });
+        reg({
+            name: 'arrow', totalStep: 3,
+            createPointFigures: ({ coordinates }) => {
+                if (coordinates.length < 2) return [];
+                const [a, b] = coordinates;
+                const ang = Math.atan2(b.y - a.y, b.x - a.x);
+                const h = 9;
+                const head = [
+                    { x: b.x, y: b.y },
+                    { x: b.x - h * Math.cos(ang - Math.PI / 7), y: b.y - h * Math.sin(ang - Math.PI / 7) },
+                    { x: b.x - h * Math.cos(ang + Math.PI / 7), y: b.y - h * Math.sin(ang + Math.PI / 7) },
+                ];
+                return [
+                    { type: 'line', attrs: { coordinates: [a, b] }, styles: { color: BLUE } },
+                    { type: 'polygon', attrs: { coordinates: head }, styles: { style: 'fill', color: BLUE } },
+                ];
+            },
+        });
+        reg({
+            name: 'text', totalStep: 2,
+            createPointFigures: ({ coordinates, overlay }) => {
+                if (coordinates.length < 1) return [];
+                return [{ type: 'text', attrs: { x: coordinates[0].x, y: coordinates[0].y, text: overlay.extendData || 'Text' }, styles: { color: '#e5e7eb', size: 12 } }];
+            },
+        });
+    }
+
+    function selectTool(name) {
+        if (name === 'remove') { chart && chart.removeOverlay(); setActiveTool('cursor'); return; }
+        setActiveTool(name);
+        if (name === 'cursor' || !chart) return;
+
+        if (name === 'text') {
+            chart.createOverlay({
+                name: 'text',
+                onDrawEnd: (o) => {
+                    const t = prompt('Label text:', 'Note');
+                    chart.overrideOverlay({ id: o.overlay.id, extendData: t || 'Note' });
+                    setActiveTool('cursor');
+                    return true;
+                },
+            });
+        } else {
+            chart.createOverlay({ name, onDrawEnd: () => { setActiveTool('cursor'); return true; } });
+        }
+    }
+
+    function setActiveTool(name) {
+        activeTool = name;
+        document.querySelectorAll('#draw-toolbar [data-tool]').forEach(b => {
+            const active = b.dataset.tool === name && name !== 'cursor';
+            b.classList.toggle('text-accent', active);
+            b.classList.toggle('bg-panel2', active);
+        });
+    }
+
+    function renderDrawToolbar() {
+        document.getElementById('draw-toolbar').innerHTML = DRAW_TOOLS.map(t =>
+            `<button data-tool="${t.name}" title="${t.title}" class="w-7 h-7 rounded flex items-center justify-center text-gray-400 hover:text-white hover:bg-panel2 ${t.name === 'remove' ? 'mt-1 text-down' : ''}">${t.glyph}</button>`
+        ).join('');
+    }
+    document.getElementById('draw-toolbar').addEventListener('click', e => {
+        const b = e.target.closest('[data-tool]');
+        if (b) selectTool(b.dataset.tool);
+    });
+
     // Event wiring
     document.getElementById('watchlist').addEventListener('click', e => {
         const row = e.target.closest('tr[data-symbol]');
@@ -981,6 +1101,7 @@
 
     // Initial load + polling
     initChart();
+    renderDrawToolbar();
     if (selected) selectSymbol(selected);
     loadQuotes(); loadAccount(); loadPositions(); loadOrders();
     setInterval(() => { loadQuotes(); loadPositions(); loadOrders(); }, 1500);
