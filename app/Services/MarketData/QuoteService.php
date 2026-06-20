@@ -2,10 +2,12 @@
 
 namespace App\Services\MarketData;
 
+use App\Events\QuotesUpdated;
 use App\Models\Instrument;
 use App\Models\Quote;
 use App\Models\Tick;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Log;
 
 class QuoteService
 {
@@ -39,6 +41,7 @@ class QuoteService
         $now = Carbon::now();
         $today = $now->toDateString();
         $tickRows = [];
+        $broadcast = [];
         $updated = 0;
 
         foreach ($instruments as $instrument) {
@@ -75,6 +78,15 @@ class QuoteService
                 'tick_at'       => $now,
             ];
 
+            $broadcast[] = [
+                'symbol'       => $instrument->symbol,
+                'bid'          => $tick['bid'],
+                'ask'          => $tick['ask'],
+                'spread'       => round(($tick['ask'] - $tick['bid']) / $instrument->pip_size, 1),
+                'daily_change' => $dayOpen > 0 ? round(($mid - $dayOpen) / $dayOpen * 100, 2) : null,
+                'quoted_at'    => $now->toIso8601String(),
+            ];
+
             $this->candles->ingest($instrument, $mid, $now);
             $updated++;
         }
@@ -82,6 +94,16 @@ class QuoteService
         if ($tickRows) {
             Tick::insert($tickRows);
             $this->pruneTicks($instruments->pluck('id')->all());
+        }
+
+        // Push the tick to WebSocket subscribers. Never let a broadcasting
+        // outage (e.g. Reverb not running) break the price refresh / engine.
+        if ($broadcast) {
+            try {
+                QuotesUpdated::dispatch($broadcast);
+            } catch (\Throwable $e) {
+                Log::warning('Quote broadcast failed: '.$e->getMessage());
+            }
         }
 
         return $updated;

@@ -52,7 +52,11 @@ app/
 - `MarketDataProvider` is the interface; `ExternalHttpProvider` polls a configurable
   HTTP JSON vendor, `SimulatedProvider` generates a random walk for offline dev.
 - `QuoteService::refresh()` fetches ticks, upserts the `quotes` table, appends
-  `ticks`, and feeds `CandleService::ingest()` to build live OHLC candles.
+  `ticks`, feeds `CandleService::ingest()` to build live OHLC candles, and
+  broadcasts a `QuotesUpdated` event to the `quotes` channel (Laravel Reverb).
+- Real-time delivery: the terminal connects via Laravel Echo to Reverb and
+  applies streamed ticks; it falls back to polling `/api/quotes` if the socket
+  is unavailable. Run the socket server with `php artisan reverb:start`.
 - `CandleService` buckets ticks into 9 timeframes (M1..MN), seeds synthetic
   history, and serves candles for the chart.
 - Drivers are bound in `AppServiceProvider`; configured in `config/markets.php`.
@@ -137,6 +141,7 @@ cp .env.example .env && php artisan key:generate
 # Configure MySQL in .env (DB_*), or set DB_CONNECTION=sqlite for quick local dev.
 php artisan migrate --seed          # seeds instruments, quotes, a demo trader
 php artisan quotes:poll --loop      # keep prices ticking (separate terminal)
+php artisan reverb:start            # WebSocket server for live streaming (optional)
 php artisan serve                   # http://127.0.0.1:8000
 
 php artisan test                    # run the suite
@@ -163,8 +168,8 @@ Seeded demo login: `trader@example.com` / `password`.
 
 ## Roadmap (not yet built)
 
-WebSocket streaming prices, persistent server-side journal, multiple accounts
-per user, deposits/withdrawals UI, swap/commission accrual.
+Multiple accounts per user, swap/commission accrual, server-side journal
+filtering/search, mobile-responsive layout polish.
 
 ---
 

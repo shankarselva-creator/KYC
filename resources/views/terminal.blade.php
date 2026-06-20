@@ -368,6 +368,17 @@
 
 @if ($account)
 <script src="/vendor/klinecharts.min.js"></script>
+<script src="/vendor/pusher.min.js"></script>
+<script src="/vendor/echo.iife.js"></script>
+<script>
+    window.__reverb = {
+        key: @json(config('broadcasting.connections.reverb.key')),
+        host: @json(config('broadcasting.connections.reverb.options.host') ?: '127.0.0.1'),
+        port: @json((int) (config('broadcasting.connections.reverb.options.port') ?: 8080)),
+        scheme: @json(config('broadcasting.connections.reverb.options.scheme') ?: 'http'),
+        enabled: @json((bool) config('broadcasting.connections.reverb.key')),
+    };
+</script>
 <script>
 (() => {
     const csrf = document.querySelector('meta[name="csrf-token"]').content;
@@ -384,6 +395,7 @@
     let chart = null;
     let chartDigits = 5;
     let online = true;
+    let wsConnected = false;
 
     async function api(url, opts = {}) {
         try {
@@ -419,10 +431,9 @@
         document.getElementById('order-ask').textContent = q ? fmt(q.ask, d) : '—';
     }
 
-    async function loadQuotes() {
-        const { ok, json } = await api('{{ route('api.quotes') }}');
-        if (!ok) return;
-        for (const q of json.data) {
+    // Apply a batch of quotes (from polling or the WebSocket stream) to the UI.
+    function applyQuotes(list) {
+        for (const q of list) {
             const d = digitsBySymbol[q.symbol] ?? 5;
             const row = document.querySelector(`#watchlist tr[data-symbol="${q.symbol}"]`);
             if (row) {
@@ -433,11 +444,17 @@
                 renderArrow(row.querySelector('[data-field="arrow"]'), q.bid, prevBid, q.daily_change);
             }
             const wasKnown = lastQuotes[q.symbol] !== undefined;
-            lastQuotes[q.symbol] = q;
-            // Feed the live tick chart + candle for the selected symbol.
+            // Merge so cached fields (e.g. description from the initial fetch) survive.
+            lastQuotes[q.symbol] = { ...lastQuotes[q.symbol], ...q };
             if (q.symbol === selected && wasKnown && q.bid != null) { appendLiveTick(q); updateLatestCandle(q); }
         }
         renderOrderPanel();
+    }
+
+    async function loadQuotes() {
+        const { ok, json } = await api('{{ route('api.quotes') }}');
+        if (!ok) return;
+        applyQuotes(json.data);
     }
 
     function renderChange(cell, change) {
@@ -1241,6 +1258,29 @@
     }
     function scrollJournal() { journalEl.scrollTop = journalEl.scrollHeight; }
 
+    // ---- WebSocket streaming (Laravel Reverb via Echo); falls back to polling ----
+    function initWebSocket() {
+        const cfg = window.__reverb;
+        if (!cfg || !cfg.enabled || typeof Echo === 'undefined' || typeof Pusher === 'undefined') return;
+        try {
+            window.Pusher = Pusher;
+            const echo = new Echo({
+                broadcaster: 'reverb',
+                key: cfg.key,
+                wsHost: cfg.host, wsPort: cfg.port, wssPort: cfg.port,
+                forceTLS: cfg.scheme === 'https',
+                enabledTransports: ['ws', 'wss'],
+            });
+            const conn = echo.connector.pusher.connection;
+            conn.bind('connected', () => { wsConnected = true; journal('WebSocket connected — streaming quotes', 'success'); });
+            conn.bind('disconnected', () => { if (wsConnected) journal('WebSocket disconnected — falling back to polling', 'warn'); wsConnected = false; });
+            conn.bind('unavailable', () => { wsConnected = false; });
+            echo.channel('quotes').listen('.quotes.updated', e => { if (e && e.quotes) applyQuotes(e.quotes); });
+        } catch (e) {
+            wsConnected = false; // polling continues
+        }
+    }
+
     // ---- Deposit / Withdraw ----
     document.getElementById('funds-btn').addEventListener('click', () => {
         document.getElementById('funds-balance').textContent = document.querySelector('[data-acc="balance"]').textContent;
@@ -1296,10 +1336,12 @@
     renderDrawToolbar();
     journal('Terminal started — {{ config('app.name') }}');
     journal('Connected to account #{{ $account->login }} ({{ $account->currency }}, leverage 1:{{ $account->leverage }})', 'success');
+    initWebSocket();
     if (selected) selectSymbol(selected);
     loadQuotes(); loadAccount(); loadPositions(); loadOrders(); loadJournal();
     setInterval(() => {
-        loadQuotes(); loadPositions(); loadOrders();
+        if (!wsConnected) loadQuotes();   // WebSocket pushes quotes when connected
+        loadPositions(); loadOrders();
         if (!document.getElementById('tb-journal').classList.contains('hidden')) loadJournal();
     }, 1500);
     setInterval(loadAccount, 2000);
