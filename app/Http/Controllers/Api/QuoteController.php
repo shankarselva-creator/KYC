@@ -23,13 +23,15 @@ class QuoteController extends Controller
             $quote = $instrument->quote;
 
             return [
-                'symbol'      => $instrument->symbol,
-                'description' => $instrument->description,
-                'digits'      => $instrument->digits,
-                'bid'         => $quote?->bid,
-                'ask'         => $quote?->ask,
-                'spread'      => $quote ? round(($quote->ask - $quote->bid) / $instrument->pip_size, 1) : null,
-                'quoted_at'   => $quote?->quoted_at?->toIso8601String(),
+                'symbol'        => $instrument->symbol,
+                'description'   => $instrument->description,
+                'category'      => $instrument->category,
+                'digits'        => $instrument->digits,
+                'bid'           => $quote?->bid,
+                'ask'           => $quote?->ask,
+                'spread'        => $quote ? round(($quote->ask - $quote->bid) / $instrument->pip_size, 1) : null,
+                'daily_change'  => $quote?->daily_change,
+                'quoted_at'     => $quote?->quoted_at?->toIso8601String(),
             ];
         });
 

@@ -51,7 +51,7 @@ class TradingApiTest extends TestCase
         $response->assertOk()
             ->assertJsonPath('error', null)
             ->assertJsonStructure(['data' => [['symbol', 'bid', 'ask', 'spread']]]);
-        $this->assertCount(10, $response->json('data'));
+        $this->assertCount(25, $response->json('data'));
     }
 
     public function test_can_open_and_close_a_position(): void

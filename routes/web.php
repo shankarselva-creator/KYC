@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\AccountController;
+use App\Http\Controllers\Api\InstrumentController;
 use App\Http\Controllers\Api\OrderController;
 use App\Http\Controllers\Api\PositionController;
 use App\Http\Controllers\Api\QuoteController;
@@ -34,6 +35,8 @@ Route::middleware('auth')->group(function () {
     // JSON API consumed by the web terminal (session-authenticated, CSRF-protected).
     Route::prefix('api')->name('api.')->group(function () {
         Route::get('/quotes', [QuoteController::class, 'index'])->name('quotes');
+        Route::get('/instruments/{symbol}/specification', [InstrumentController::class, 'specification'])->name('instruments.specification');
+        Route::get('/instruments/{symbol}/ticks', [InstrumentController::class, 'ticks'])->name('instruments.ticks');
         Route::get('/account', [AccountController::class, 'show'])->name('account');
         Route::get('/positions', [PositionController::class, 'index'])->name('positions');
         Route::post('/orders', [OrderController::class, 'store'])->name('orders.store');

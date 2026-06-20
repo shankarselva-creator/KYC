@@ -225,6 +225,27 @@ class TradingService
         return round($notionalAccount / $leverage, 2);
     }
 
+    /**
+     * Margin required to hold one standard lot of an instrument on the account,
+     * in the account currency. Returns null when no live price is available.
+     */
+    public function marginPerLot(Instrument $instrument, TradingAccount $account): ?float
+    {
+        $quote = $instrument->quote()->first();
+        if (! $quote) {
+            return null;
+        }
+
+        return $this->requiredMargin(
+            $instrument,
+            1.0,
+            $quote->ask,
+            $account->leverage,
+            $this->converter(),
+            $account->currency,
+        );
+    }
+
     private function quoteFor(Instrument $instrument): Quote
     {
         $quote = $instrument->quote()->first();

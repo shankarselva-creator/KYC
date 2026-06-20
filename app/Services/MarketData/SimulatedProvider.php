@@ -15,21 +15,21 @@ class SimulatedProvider implements MarketDataProvider
 {
     /** Seed mid-prices used when an instrument has no prior quote. */
     private const SEED_PRICES = [
-        'EURUSD' => 1.08500,
-        'GBPUSD' => 1.27200,
-        'USDJPY' => 156.300,
-        'USDCHF' => 0.89400,
-        'AUDUSD' => 0.66300,
-        'USDCAD' => 1.37100,
-        'NZDUSD' => 0.61200,
-        'EURJPY' => 169.600,
-        'EURGBP' => 0.85300,
-        'XAUUSD' => 2330.00,
+        'EURUSD' => 1.08500, 'GBPUSD' => 1.27200, 'USDJPY' => 156.300,
+        'USDCHF' => 0.89400, 'AUDUSD' => 0.66300, 'USDCAD' => 1.37100,
+        'NZDUSD' => 0.61200, 'EURJPY' => 169.600, 'EURGBP' => 0.85300,
+        'GBPJPY' => 198.700, 'AUDJPY' => 103.600, 'AUDCAD' => 0.90900,
+        'AUDCHF' => 0.59300, 'AUDNZD' => 1.08300, 'CADJPY' => 114.000,
+        'CHFJPY' => 174.800, 'EURAUD' => 1.63600, 'EURCAD' => 1.48700,
+        'GBPAUD' => 1.91800, 'USDSEK' => 10.5500, 'USDNOK' => 10.7200,
+        'USDZAR' => 18.2500, 'USDMXN' => 18.4500, 'XAUUSD' => 2330.00,
+        'XAGUSD' => 29.500,
     ];
 
-    /** Typical half-spread in pips per symbol. */
+    /** Typical half-spread in pips per symbol (defaults to 0.6 otherwise). */
     private const SPREAD_PIPS = [
-        'XAUUSD' => 20.0,
+        'XAUUSD' => 20.0, 'XAGUSD' => 3.0,
+        'USDSEK' => 20.0, 'USDNOK' => 20.0, 'USDZAR' => 25.0, 'USDMXN' => 25.0,
     ];
 
     public function fetch(Collection $instruments): array
@@ -69,6 +69,18 @@ class SimulatedProvider implements MarketDataProvider
             return ($existing->bid + $existing->ask) / 2;
         }
 
-        return self::SEED_PRICES[$instrument->symbol] ?? 1.0;
+        return self::SEED_PRICES[$instrument->symbol] ?? $this->fallbackBase($instrument);
+    }
+
+    /**
+     * Deterministic base price for symbols without an explicit seed, scaled to a
+     * sensible magnitude for the instrument's quoting precision.
+     */
+    private function fallbackBase(Instrument $instrument): float
+    {
+        $magnitude = $instrument->digits >= 3 && $instrument->pip_size >= 0.01 ? 100.0 : 1.0;
+        $jitter = (crc32($instrument->symbol) % 5000) / 10000; // 0.0–0.5
+
+        return round($magnitude * (1 + $jitter), $instrument->digits);
     }
 }

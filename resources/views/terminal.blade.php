@@ -38,29 +38,57 @@
     <div class="flex-1 grid grid-cols-12 gap-px bg-edge overflow-hidden">
         {{-- Market Watch --}}
         <section class="col-span-12 md:col-span-4 lg:col-span-3 bg-panel flex flex-col overflow-hidden">
-            <div class="px-3 py-2 text-xs uppercase tracking-wide text-gray-400 border-b border-edge">Market Watch</div>
-            <div class="overflow-auto">
+            <div class="px-3 py-2 text-xs uppercase tracking-wide text-gray-400 border-b border-edge flex items-center justify-between">
+                <span>Market Watch</span>
+                <span class="text-[10px] text-gray-600 normal-case" id="mw-count">{{ $instruments->count() }} symbols</span>
+            </div>
+
+            {{-- Symbol search --}}
+            <div class="px-2 py-1.5 border-b border-edge">
+                <input id="mw-search" type="text" placeholder="Search symbol" autocomplete="off"
+                    class="w-full bg-panel2 border border-edge rounded-md px-2 py-1 text-xs focus:outline-none focus:border-accent">
+            </div>
+
+            {{-- Symbols list --}}
+            <div id="mw-symbols" class="overflow-auto flex-1">
                 <table class="w-full text-xs">
                     <thead class="text-gray-500 sticky top-0 bg-panel">
                         <tr>
                             <th class="text-left px-3 py-1.5 font-medium">Symbol</th>
                             <th class="text-right px-2 py-1.5 font-medium">Bid</th>
                             <th class="text-right px-2 py-1.5 font-medium">Ask</th>
-                            <th class="text-right px-3 py-1.5 font-medium">Spr</th>
+                            <th class="text-right px-3 py-1.5 font-medium">Chg%</th>
                         </tr>
                     </thead>
                     <tbody id="watchlist">
                         @foreach ($instruments as $ins)
-                        <tr class="border-t border-edge/50 hover:bg-panel2 cursor-pointer select-none"
+                        <tr class="mw-row border-t border-edge/50 hover:bg-panel2 cursor-pointer select-none"
                             data-symbol="{{ $ins->symbol }}" data-digits="{{ $ins->digits }}">
-                            <td class="px-3 py-1.5 font-medium text-gray-200">{{ $ins->symbol }}</td>
+                            <td class="px-3 py-1.5 font-medium text-gray-200 whitespace-nowrap">
+                                <span data-field="arrow" class="text-gray-600">●</span> {{ $ins->symbol }}
+                            </td>
                             <td class="px-2 py-1.5 text-right tabular-nums" data-field="bid">—</td>
                             <td class="px-2 py-1.5 text-right tabular-nums" data-field="ask">—</td>
-                            <td class="px-3 py-1.5 text-right tabular-nums text-gray-500" data-field="spread">—</td>
+                            <td class="px-3 py-1.5 text-right tabular-nums text-gray-500" data-field="change">—</td>
                         </tr>
                         @endforeach
                     </tbody>
                 </table>
+            </div>
+
+            {{-- Tick chart --}}
+            <div id="mw-tickchart" class="hidden flex-1 flex-col p-2">
+                <div class="text-xs text-gray-300 mb-1" id="tick-title">Select a symbol</div>
+                <canvas id="tick-canvas" class="flex-1 w-full bg-panel2 border border-edge rounded"></canvas>
+                <div class="flex justify-between text-[10px] text-gray-500 mt-1 tabular-nums">
+                    <span id="tick-min">—</span><span id="tick-last" class="text-gray-300">—</span><span id="tick-max">—</span>
+                </div>
+            </div>
+
+            {{-- Bottom tabs --}}
+            <div class="flex border-t border-edge text-xs shrink-0">
+                <button data-mwtab="symbols" class="mw-tab flex-1 py-1.5 text-accent border-t-2 border-accent bg-panel2">Symbols</button>
+                <button data-mwtab="tickchart" class="mw-tab flex-1 py-1.5 text-gray-400 border-t-2 border-transparent hover:text-gray-200">Tick Chart</button>
             </div>
         </section>
 
@@ -137,6 +165,27 @@
             </div>
         </section>
     </div>
+
+    {{-- Right-click context menu for Market Watch --}}
+    <div id="mw-menu" class="hidden fixed z-50 bg-panel2 border border-edge rounded-md shadow-lg text-xs py-1 w-40">
+        <button data-menu="new-order" class="block w-full text-left px-3 py-1.5 hover:bg-panel">New Order</button>
+        <button data-menu="specification" class="block w-full text-left px-3 py-1.5 hover:bg-panel">Specification</button>
+        <button data-menu="tickchart" class="block w-full text-left px-3 py-1.5 hover:bg-panel">Tick Chart</button>
+    </div>
+
+    {{-- Specification modal --}}
+    <div id="spec-modal" class="hidden fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+        <div class="bg-panel border border-edge rounded-xl w-full max-w-md max-h-[85vh] overflow-auto">
+            <div class="flex items-center justify-between px-4 py-3 border-b border-edge">
+                <div>
+                    <div class="font-semibold text-white" id="spec-symbol">—</div>
+                    <div class="text-xs text-gray-400" id="spec-desc"></div>
+                </div>
+                <button id="spec-close" class="text-gray-400 hover:text-white text-lg leading-none">✕</button>
+            </div>
+            <table class="w-full text-xs" id="spec-table"></table>
+        </div>
+    </div>
     @endif
 </div>
 
@@ -150,6 +199,8 @@
 
     let selected = document.querySelector('#watchlist tr')?.dataset.symbol || null;
     let lastQuotes = {};
+    let tickTab = false;
+    let tickData = [];   // recent mid-prices for the selected symbol (tick chart)
 
     async function api(url, opts = {}) {
         const res = await fetch(url, {
@@ -165,6 +216,8 @@
         document.querySelectorAll('#watchlist tr').forEach(r =>
             r.classList.toggle('bg-panel2', r.dataset.symbol === sym));
         renderOrderPanel();
+        tickData = [];
+        if (tickTab) loadTicks();
     }
 
     function renderOrderPanel() {
@@ -183,13 +236,36 @@
             const d = digitsBySymbol[q.symbol] ?? 5;
             const row = document.querySelector(`#watchlist tr[data-symbol="${q.symbol}"]`);
             if (row) {
-                updateCell(row.querySelector('[data-field="bid"]'), q.bid, lastQuotes[q.symbol]?.bid, d);
+                const prevBid = lastQuotes[q.symbol]?.bid;
+                updateCell(row.querySelector('[data-field="bid"]'), q.bid, prevBid, d);
                 updateCell(row.querySelector('[data-field="ask"]'), q.ask, lastQuotes[q.symbol]?.ask, d);
-                row.querySelector('[data-field="spread"]').textContent = q.spread ?? '—';
+                renderChange(row.querySelector('[data-field="change"]'), q.daily_change);
+                renderArrow(row.querySelector('[data-field="arrow"]'), q.bid, prevBid, q.daily_change);
             }
+            const wasKnown = lastQuotes[q.symbol] !== undefined;
             lastQuotes[q.symbol] = q;
+            // Feed the live tick chart for the selected symbol.
+            if (q.symbol === selected && wasKnown && q.bid != null) appendLiveTick(q);
         }
         renderOrderPanel();
+    }
+
+    function renderChange(cell, change) {
+        if (!cell) return;
+        if (change === null || change === undefined) { cell.textContent = '—'; return; }
+        cell.textContent = (change > 0 ? '+' : '') + change.toFixed(2) + '%';
+        cell.classList.remove('text-up', 'text-down', 'text-gray-500');
+        cell.classList.add(change > 0 ? 'text-up' : change < 0 ? 'text-down' : 'text-gray-500');
+    }
+
+    function renderArrow(cell, bid, prevBid, change) {
+        if (!cell) return;
+        let dir = 0;
+        if (prevBid !== undefined && bid !== prevBid) dir = bid > prevBid ? 1 : -1;
+        else if (change != null) dir = change > 0 ? 1 : change < 0 ? -1 : 0;
+        cell.textContent = dir > 0 ? '▲' : dir < 0 ? '▼' : '●';
+        cell.classList.remove('text-up', 'text-down', 'text-gray-600');
+        cell.classList.add(dir > 0 ? 'text-up' : dir < 0 ? 'text-down' : 'text-gray-600');
     }
 
     function updateCell(cell, value, prev, d) {
@@ -284,6 +360,129 @@
         }
         await Promise.all([loadPositions(), loadAccount()]);
     }
+
+    // ---- Market Watch: symbol search ----
+    document.getElementById('mw-search').addEventListener('input', e => {
+        const term = e.target.value.trim().toUpperCase();
+        let shown = 0;
+        document.querySelectorAll('#watchlist tr').forEach(r => {
+            const match = r.dataset.symbol.includes(term);
+            r.style.display = match ? '' : 'none';
+            if (match) shown++;
+        });
+        document.getElementById('mw-count').textContent = shown + ' symbols';
+    });
+
+    // ---- Market Watch: Symbols / Tick Chart tabs ----
+    function setMwTab(tab) {
+        tickTab = tab === 'tickchart';
+        document.getElementById('mw-symbols').classList.toggle('hidden', tickTab);
+        const tc = document.getElementById('mw-tickchart');
+        tc.classList.toggle('hidden', !tickTab);
+        tc.classList.toggle('flex', tickTab);
+        document.querySelectorAll('.mw-tab').forEach(b => {
+            const active = b.dataset.mwtab === tab;
+            b.classList.toggle('text-accent', active);
+            b.classList.toggle('border-accent', active);
+            b.classList.toggle('bg-panel2', active);
+            b.classList.toggle('text-gray-400', !active);
+            b.classList.toggle('border-transparent', !active);
+        });
+        if (tickTab) loadTicks();
+    }
+    document.querySelectorAll('.mw-tab').forEach(b =>
+        b.addEventListener('click', () => setMwTab(b.dataset.mwtab)));
+
+    async function loadTicks() {
+        if (!selected) return;
+        document.getElementById('tick-title').textContent = selected + ' · tick chart';
+        const { ok, json } = await api(`/api/instruments/${selected}/ticks?limit=200`);
+        if (!ok) return;
+        tickData = json.data.ticks.map(t => t.mid);
+        drawTicks(digitsBySymbol[selected] ?? 5);
+    }
+
+    function appendLiveTick(q) {
+        tickData.push((q.bid + q.ask) / 2);
+        if (tickData.length > 300) tickData.shift();
+        if (tickTab) drawTicks(digitsBySymbol[selected] ?? 5);
+    }
+
+    function drawTicks(d) {
+        const canvas = document.getElementById('tick-canvas');
+        const dpr = window.devicePixelRatio || 1;
+        const w = canvas.clientWidth, h = canvas.clientHeight;
+        if (!w || !h) return;
+        canvas.width = w * dpr; canvas.height = h * dpr;
+        const ctx = canvas.getContext('2d');
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.clearRect(0, 0, w, h);
+        if (tickData.length < 2) return;
+        const min = Math.min(...tickData), max = Math.max(...tickData);
+        const range = (max - min) || 1, pad = 6;
+        const x = i => pad + (i / (tickData.length - 1)) * (w - 2 * pad);
+        const y = v => h - pad - ((v - min) / range) * (h - 2 * pad);
+        ctx.beginPath();
+        tickData.forEach((v, i) => i === 0 ? ctx.moveTo(x(i), y(v)) : ctx.lineTo(x(i), y(v)));
+        ctx.strokeStyle = '#3b82f6'; ctx.lineWidth = 1.5; ctx.stroke();
+        const last = tickData[tickData.length - 1];
+        ctx.fillStyle = last >= tickData[0] ? '#26a69a' : '#ef5350';
+        ctx.beginPath(); ctx.arc(x(tickData.length - 1), y(last), 2.5, 0, Math.PI * 2); ctx.fill();
+        document.getElementById('tick-min').textContent = min.toFixed(d);
+        document.getElementById('tick-max').textContent = max.toFixed(d);
+        document.getElementById('tick-last').textContent = last.toFixed(d);
+    }
+
+    // ---- Market Watch: right-click context menu ----
+    let menuSymbol = null;
+    const menu = document.getElementById('mw-menu');
+    document.getElementById('watchlist').addEventListener('contextmenu', e => {
+        const row = e.target.closest('tr[data-symbol]');
+        if (!row) return;
+        e.preventDefault();
+        menuSymbol = row.dataset.symbol;
+        menu.style.left = Math.min(e.clientX, window.innerWidth - 170) + 'px';
+        menu.style.top = Math.min(e.clientY, window.innerHeight - 110) + 'px';
+        menu.classList.remove('hidden');
+    });
+    document.addEventListener('click', () => menu.classList.add('hidden'));
+    menu.addEventListener('click', e => {
+        const act = e.target.dataset.menu;
+        if (!act || !menuSymbol) return;
+        if (act === 'new-order') selectSymbol(menuSymbol);
+        else if (act === 'specification') openSpec(menuSymbol);
+        else if (act === 'tickchart') { selectSymbol(menuSymbol); setMwTab('tickchart'); }
+    });
+
+    // ---- Specification modal ----
+    async function openSpec(sym) {
+        const { ok, json } = await api(`/api/instruments/${sym}/specification`);
+        if (!ok) return;
+        const s = json.data;
+        document.getElementById('spec-symbol').textContent = s.symbol;
+        document.getElementById('spec-desc').textContent = s.description;
+        const rows = [
+            ['Category', s.category],
+            ['Digits', s.digits],
+            ['Contract size', s.contract_size.toLocaleString()],
+            ['Spread (points)', s.spread ?? '—'],
+            ['Stops level (points)', s.stops_level],
+            ['Volume min / step / max', `${s.volume_min} / ${s.volume_step} / ${s.volume_max}`],
+            ['Swap long', s.swap_long],
+            ['Swap short', s.swap_short],
+            ['Margin / lot', s.margin_per_lot != null ? `${s.margin_per_lot.toLocaleString()} ${s.margin_currency}` : '—'],
+            ['Leverage', '1:' + s.leverage],
+        ];
+        document.getElementById('spec-table').innerHTML = rows.map(([k, v]) =>
+            `<tr class="border-t border-edge/50"><td class="px-4 py-1.5 text-gray-400">${k}</td><td class="px-4 py-1.5 text-right text-gray-200 tabular-nums">${v}</td></tr>`
+        ).join('');
+        document.getElementById('spec-modal').classList.remove('hidden');
+    }
+    document.getElementById('spec-close').addEventListener('click', () =>
+        document.getElementById('spec-modal').classList.add('hidden'));
+    document.getElementById('spec-modal').addEventListener('click', e => {
+        if (e.target.id === 'spec-modal') e.target.classList.add('hidden');
+    });
 
     // Event wiring
     document.getElementById('watchlist').addEventListener('click', e => {

@@ -12,6 +12,7 @@ class Instrument extends Model
         'symbol', 'base_currency', 'quote_currency', 'description',
         'digits', 'pip_size', 'contract_size',
         'min_volume', 'max_volume', 'volume_step',
+        'swap_long', 'swap_short', 'stops_level', 'category',
         'is_active', 'sort_order',
     ];
 
@@ -24,6 +25,9 @@ class Instrument extends Model
             'min_volume'    => 'float',
             'max_volume'    => 'float',
             'volume_step'   => 'float',
+            'swap_long'     => 'float',
+            'swap_short'    => 'float',
+            'stops_level'   => 'integer',
             'is_active'     => 'boolean',
             'sort_order'    => 'integer',
         ];
@@ -37,6 +41,11 @@ class Instrument extends Model
     public function positions(): HasMany
     {
         return $this->hasMany(Position::class);
+    }
+
+    public function ticks(): HasMany
+    {
+        return $this->hasMany(Tick::class);
     }
 
     /**

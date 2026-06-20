@@ -67,8 +67,10 @@ app/
 ## Data Models
 
 ```
-Instrument       symbol, base/quote currency, digits, pip_size, contract_size, volumes
-Quote            instrument_id (unique), bid, ask, quoted_at   (latest tick per symbol)
+Instrument       symbol, base/quote currency, digits, pip_size, contract_size, volumes,
+                 swap_long/short, stops_level, category
+Quote            instrument_id (unique), bid, ask, day_open (+date), quoted_at  (latest tick)
+Tick             instrument_id, bid, ask, tick_at   (rolling history for the tick chart)
 TradingAccount   user_id, login, type(demo|live), currency, leverage, balance
 Position         ticket, account, instrument, side(buy|sell), volume, open/close price,
                  sl, tp, commission, swap, profit, status(open|closed), timestamps
@@ -81,7 +83,9 @@ Transaction      account, position, type, amount, balance_after   (ledger)
 
 | Method | Route | Purpose |
 |---|---|---|
-| GET  | `/api/quotes` | Active instruments + latest bid/ask/spread |
+| GET  | `/api/quotes` | Active instruments + latest bid/ask/spread + daily change |
+| GET  | `/api/instruments/{symbol}/specification` | Contract spec: digits, swaps, margin/lot |
+| GET  | `/api/instruments/{symbol}/ticks` | Recent tick history (tick chart) |
 | GET  | `/api/account` | Account info + live metrics |
 | GET  | `/api/positions` | Open positions with live P/L |
 | POST | `/api/orders` | Open a market order (`symbol, side, volume, sl?, tp?`) |
