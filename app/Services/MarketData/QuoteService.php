@@ -12,8 +12,10 @@ class QuoteService
     /** Keep at most this many ticks per instrument for the tick chart. */
     private const TICK_HISTORY_LIMIT = 300;
 
-    public function __construct(private readonly MarketDataProvider $provider)
-    {
+    public function __construct(
+        private readonly MarketDataProvider $provider,
+        private readonly CandleService $candles,
+    ) {
     }
 
     /**
@@ -72,6 +74,8 @@ class QuoteService
                 'ask'           => $tick['ask'],
                 'tick_at'       => $now,
             ];
+
+            $this->candles->ingest($instrument, $mid, $now);
             $updated++;
         }
 

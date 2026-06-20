@@ -6,6 +6,7 @@ use App\Http\Controllers\Concerns\ApiResponses;
 use App\Http\Controllers\Concerns\ResolvesTradingAccount;
 use App\Http\Controllers\Controller;
 use App\Models\Instrument;
+use App\Services\MarketData\CandleService;
 use App\Services\Trading\TradingService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -72,6 +73,32 @@ class InstrumentController extends Controller
             'symbol' => $instrument->symbol,
             'digits' => $instrument->digits,
             'ticks'  => $ticks,
+        ]);
+    }
+
+    /**
+     * OHLC candles for the charting workspace.
+     */
+    public function candles(Request $request, string $symbol, CandleService $candles): JsonResponse
+    {
+        $instrument = Instrument::where('symbol', $symbol)->firstOrFail();
+        $timeframe = $candles->normalizeTimeframe((string) $request->query('timeframe', 'M5'));
+        $limit = min(1000, max(50, (int) $request->integer('limit', 300)));
+
+        $bars = $candles->recent($instrument, $timeframe, $limit)->map(fn ($c) => [
+            'timestamp' => $c->opened_at->getTimestampMs(),
+            'open'      => (float) $c->open,
+            'high'      => (float) $c->high,
+            'low'       => (float) $c->low,
+            'close'     => (float) $c->close,
+            'volume'    => (int) $c->volume,
+        ]);
+
+        return $this->ok([
+            'symbol'    => $instrument->symbol,
+            'timeframe' => $timeframe,
+            'digits'    => $instrument->digits,
+            'candles'   => $bars,
         ]);
     }
 }

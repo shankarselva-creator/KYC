@@ -51,8 +51,17 @@ app/
 - Driver-based, selected by `MARKET_DATA_DRIVER` (`external` | `simulated`).
 - `MarketDataProvider` is the interface; `ExternalHttpProvider` polls a configurable
   HTTP JSON vendor, `SimulatedProvider` generates a random walk for offline dev.
-- `QuoteService::refresh()` fetches ticks and upserts the `quotes` table.
+- `QuoteService::refresh()` fetches ticks, upserts the `quotes` table, appends
+  `ticks`, and feeds `CandleService::ingest()` to build live OHLC candles.
+- `CandleService` buckets ticks into 9 timeframes (M1..MN), seeds synthetic
+  history, and serves candles for the chart.
 - Drivers are bound in `AppServiceProvider`; configured in `config/markets.php`.
+
+### Charting (frontend)
+
+- The terminal embeds **KLineCharts** (vendored at `public/vendor/klinecharts.min.js`,
+  no CDN). 3 chart types (Candles / Bars / Line) and 9 timeframes; the latest
+  candle updates live from polled quotes.
 
 ### Trading engine
 
@@ -74,6 +83,7 @@ Instrument       symbol, base/quote currency, digits, pip_size, contract_size, v
                  swap_long/short, stops_level, category
 Quote            instrument_id (unique), bid, ask, day_open (+date), quoted_at  (latest tick)
 Tick             instrument_id, bid, ask, tick_at   (rolling history for the tick chart)
+Candle           instrument_id, timeframe(M1..MN), opened_at, OHLC, volume  (chart data)
 TradingAccount   user_id, login, type(demo|live), currency, leverage, balance
 Position         ticket, account, instrument, side(buy|sell), volume, open/close price,
                  sl, tp, commission, swap, profit, status(open|closed), timestamps
@@ -91,6 +101,7 @@ Transaction      account, position, type, amount, balance_after   (ledger)
 | GET  | `/api/quotes` | Active instruments + latest bid/ask/spread + daily change |
 | GET  | `/api/instruments/{symbol}/specification` | Contract spec: digits, swaps, margin/lot |
 | GET  | `/api/instruments/{symbol}/ticks` | Recent tick history (tick chart) |
+| GET  | `/api/instruments/{symbol}/candles` | OHLC candles (`timeframe=M1..MN`) for the chart |
 | GET  | `/api/account` | Account info + live metrics |
 | GET  | `/api/positions` | Open positions with live P/L |
 | GET  | `/api/orders` | Pending orders (limit/stop) |
@@ -138,8 +149,8 @@ Seeded demo login: `trader@example.com` / `password`.
 
 ## Roadmap (not yet built)
 
-Charting (candlesticks/indicators), drawing tools, WebSocket streaming prices,
-toolbox tabs (Journal), multiple accounts per user, deposits/withdrawals UI,
+Chart indicators (MA/MACD/RSI/…) and drawing tools, WebSocket streaming prices,
+toolbox Journal tab, multiple accounts per user, deposits/withdrawals UI,
 swap/commission accrual.
 
 ---

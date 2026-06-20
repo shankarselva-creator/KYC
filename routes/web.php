@@ -37,6 +37,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/quotes', [QuoteController::class, 'index'])->name('quotes');
         Route::get('/instruments/{symbol}/specification', [InstrumentController::class, 'specification'])->name('instruments.specification');
         Route::get('/instruments/{symbol}/ticks', [InstrumentController::class, 'ticks'])->name('instruments.ticks');
+        Route::get('/instruments/{symbol}/candles', [InstrumentController::class, 'candles'])->name('instruments.candles');
         Route::get('/account', [AccountController::class, 'show'])->name('account');
         Route::get('/positions', [PositionController::class, 'index'])->name('positions');
         Route::get('/orders', [OrderController::class, 'index'])->name('orders.index');

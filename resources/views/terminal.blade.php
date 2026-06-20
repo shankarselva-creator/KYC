@@ -35,65 +35,28 @@
     @if (! $account)
         <div class="p-6 text-sm text-down">No trading account is provisioned for your user.</div>
     @else
-    <div class="flex-1 grid grid-cols-12 gap-px bg-edge overflow-hidden">
-        {{-- Market Watch --}}
-        <section class="col-span-12 md:col-span-4 lg:col-span-3 bg-panel flex flex-col overflow-hidden">
-            <div class="px-3 py-2 text-xs uppercase tracking-wide text-gray-400 border-b border-edge flex items-center justify-between">
-                <span>Market Watch</span>
-                <span class="text-[10px] text-gray-600 normal-case" id="mw-count">{{ $instruments->count() }} symbols</span>
-            </div>
+    <div class="flex-1 flex flex-col overflow-hidden">
+    {{-- Chart toolbar --}}
+    <div class="bg-panel border-b border-edge px-3 py-1.5 flex items-center gap-2 text-xs flex-wrap shrink-0">
+        <span class="font-semibold text-white" id="chart-symbol-label">—</span>
+        <span class="text-gray-500" id="chart-tf-label"></span>
+        <div class="w-px h-4 bg-edge mx-1"></div>
+        <div class="flex items-center gap-1" id="chart-types">
+            <button data-ctype="candle_solid" class="ctype-btn px-2 py-1 rounded text-accent bg-panel2">Candles</button>
+            <button data-ctype="ohlc" class="ctype-btn px-2 py-1 rounded text-gray-400 hover:text-gray-200">Bars</button>
+            <button data-ctype="area" class="ctype-btn px-2 py-1 rounded text-gray-400 hover:text-gray-200">Line</button>
+        </div>
+        <div class="w-px h-4 bg-edge mx-1"></div>
+        <div class="flex items-center gap-0.5" id="chart-tfs">
+            @foreach (['M1','M5','M15','M30','H1','H4','D1','W1','MN'] as $tf)
+            <button data-tf="{{ $tf }}" class="tf-btn px-2 py-1 rounded font-medium {{ $tf === 'M5' ? 'text-accent bg-panel2' : 'text-gray-400 hover:text-gray-200' }}">{{ $tf }}</button>
+            @endforeach
+        </div>
+    </div>
 
-            {{-- Symbol search --}}
-            <div class="px-2 py-1.5 border-b border-edge">
-                <input id="mw-search" type="text" placeholder="Search symbol" autocomplete="off"
-                    class="w-full bg-panel2 border border-edge rounded-md px-2 py-1 text-xs focus:outline-none focus:border-accent">
-            </div>
-
-            {{-- Symbols list --}}
-            <div id="mw-symbols" class="overflow-auto flex-1">
-                <table class="w-full text-xs">
-                    <thead class="text-gray-500 sticky top-0 bg-panel">
-                        <tr>
-                            <th class="text-left px-3 py-1.5 font-medium">Symbol</th>
-                            <th class="text-right px-2 py-1.5 font-medium">Bid</th>
-                            <th class="text-right px-2 py-1.5 font-medium">Ask</th>
-                            <th class="text-right px-3 py-1.5 font-medium">Chg%</th>
-                        </tr>
-                    </thead>
-                    <tbody id="watchlist">
-                        @foreach ($instruments as $ins)
-                        <tr class="mw-row border-t border-edge/50 hover:bg-panel2 cursor-pointer select-none"
-                            data-symbol="{{ $ins->symbol }}" data-digits="{{ $ins->digits }}">
-                            <td class="px-3 py-1.5 font-medium text-gray-200 whitespace-nowrap">
-                                <span data-field="arrow" class="text-gray-600">●</span> {{ $ins->symbol }}
-                            </td>
-                            <td class="px-2 py-1.5 text-right tabular-nums" data-field="bid">—</td>
-                            <td class="px-2 py-1.5 text-right tabular-nums" data-field="ask">—</td>
-                            <td class="px-3 py-1.5 text-right tabular-nums text-gray-500" data-field="change">—</td>
-                        </tr>
-                        @endforeach
-                    </tbody>
-                </table>
-            </div>
-
-            {{-- Tick chart --}}
-            <div id="mw-tickchart" class="hidden flex-1 flex-col p-2">
-                <div class="text-xs text-gray-300 mb-1" id="tick-title">Select a symbol</div>
-                <canvas id="tick-canvas" class="flex-1 w-full bg-panel2 border border-edge rounded"></canvas>
-                <div class="flex justify-between text-[10px] text-gray-500 mt-1 tabular-nums">
-                    <span id="tick-min">—</span><span id="tick-last" class="text-gray-300">—</span><span id="tick-max">—</span>
-                </div>
-            </div>
-
-            {{-- Bottom tabs --}}
-            <div class="flex border-t border-edge text-xs shrink-0">
-                <button data-mwtab="symbols" class="mw-tab flex-1 py-1.5 text-accent border-t-2 border-accent bg-panel2">Symbols</button>
-                <button data-mwtab="tickchart" class="mw-tab flex-1 py-1.5 text-gray-400 border-t-2 border-transparent hover:text-gray-200">Tick Chart</button>
-            </div>
-        </section>
-
-        {{-- Order panel --}}
-        <section class="col-span-12 md:col-span-8 lg:col-span-3 bg-panel p-4 flex flex-col gap-3 overflow-auto">
+    <div class="flex-1 grid grid-cols-12 gap-px bg-edge overflow-hidden min-h-0">
+        {{-- Order ticket (left) --}}
+        <section class="col-span-12 lg:col-span-3 bg-panel p-4 flex flex-col gap-3 overflow-auto">
             <div class="flex items-center justify-between">
                 <div class="text-xs uppercase tracking-wide text-gray-400">New Order</div>
                 <label class="flex items-center gap-1 text-[11px] text-gray-400 cursor-pointer select-none">
@@ -165,8 +128,71 @@
             <div id="order-msg" class="text-xs min-h-[1rem]"></div>
         </section>
 
-        {{-- Open positions + pending orders --}}
+        {{-- Chart (center) --}}
         <section class="col-span-12 lg:col-span-6 bg-panel flex flex-col overflow-hidden">
+            <div id="chart" class="flex-1 w-full min-h-0"></div>
+        </section>
+
+        {{-- Market Watch (right) --}}
+        <section class="col-span-12 md:col-span-6 lg:col-span-3 bg-panel flex flex-col overflow-hidden">
+            <div class="px-3 py-2 text-xs uppercase tracking-wide text-gray-400 border-b border-edge flex items-center justify-between">
+                <span>Market Watch</span>
+                <span class="text-[10px] text-gray-600 normal-case" id="mw-count">{{ $instruments->count() }} symbols</span>
+            </div>
+
+            {{-- Symbol search --}}
+            <div class="px-2 py-1.5 border-b border-edge">
+                <input id="mw-search" type="text" placeholder="Search symbol" autocomplete="off"
+                    class="w-full bg-panel2 border border-edge rounded-md px-2 py-1 text-xs focus:outline-none focus:border-accent">
+            </div>
+
+            {{-- Symbols list --}}
+            <div id="mw-symbols" class="overflow-auto flex-1">
+                <table class="w-full text-xs">
+                    <thead class="text-gray-500 sticky top-0 bg-panel">
+                        <tr>
+                            <th class="text-left px-3 py-1.5 font-medium">Symbol</th>
+                            <th class="text-right px-2 py-1.5 font-medium">Bid</th>
+                            <th class="text-right px-2 py-1.5 font-medium">Ask</th>
+                            <th class="text-right px-3 py-1.5 font-medium">Chg%</th>
+                        </tr>
+                    </thead>
+                    <tbody id="watchlist">
+                        @foreach ($instruments as $ins)
+                        <tr class="mw-row border-t border-edge/50 hover:bg-panel2 cursor-pointer select-none"
+                            data-symbol="{{ $ins->symbol }}" data-digits="{{ $ins->digits }}">
+                            <td class="px-3 py-1.5 font-medium text-gray-200 whitespace-nowrap">
+                                <span data-field="arrow" class="text-gray-600">●</span> {{ $ins->symbol }}
+                            </td>
+                            <td class="px-2 py-1.5 text-right tabular-nums" data-field="bid">—</td>
+                            <td class="px-2 py-1.5 text-right tabular-nums" data-field="ask">—</td>
+                            <td class="px-3 py-1.5 text-right tabular-nums text-gray-500" data-field="change">—</td>
+                        </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+
+            {{-- Tick chart --}}
+            <div id="mw-tickchart" class="hidden flex-1 flex-col p-2">
+                <div class="text-xs text-gray-300 mb-1" id="tick-title">Select a symbol</div>
+                <canvas id="tick-canvas" class="flex-1 w-full bg-panel2 border border-edge rounded"></canvas>
+                <div class="flex justify-between text-[10px] text-gray-500 mt-1 tabular-nums">
+                    <span id="tick-min">—</span><span id="tick-last" class="text-gray-300">—</span><span id="tick-max">—</span>
+                </div>
+            </div>
+
+            {{-- Bottom tabs --}}
+            <div class="flex border-t border-edge text-xs shrink-0">
+                <button data-mwtab="symbols" class="mw-tab flex-1 py-1.5 text-accent border-t-2 border-accent bg-panel2">Symbols</button>
+                <button data-mwtab="tickchart" class="mw-tab flex-1 py-1.5 text-gray-400 border-t-2 border-transparent hover:text-gray-200">Tick Chart</button>
+            </div>
+        </section>
+    </div>
+
+    {{-- Toolbox (bottom): Open Positions + Pending Orders --}}
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-px bg-edge shrink-0" style="height:14rem">
+        <div class="bg-panel flex flex-col overflow-hidden">
             <div class="px-3 py-2 text-xs uppercase tracking-wide text-gray-400 border-b border-edge flex justify-between">
                 <span>Open Positions</span>
                 <span id="positions-count" class="text-gray-500"></span>
@@ -192,12 +218,14 @@
                     </tbody>
                 </table>
             </div>
+        </div>
 
-            <div class="px-3 py-2 text-xs uppercase tracking-wide text-gray-400 border-y border-edge flex justify-between">
+        <div class="bg-panel flex flex-col overflow-hidden">
+            <div class="px-3 py-2 text-xs uppercase tracking-wide text-gray-400 border-b border-edge flex justify-between">
                 <span>Pending Orders</span>
                 <span id="orders-count" class="text-gray-500"></span>
             </div>
-            <div class="overflow-auto max-h-44">
+            <div class="overflow-auto flex-1">
                 <table class="w-full text-xs">
                     <thead class="text-gray-500 sticky top-0 bg-panel">
                         <tr>
@@ -215,7 +243,8 @@
                     </tbody>
                 </table>
             </div>
-        </section>
+        </div>
+    </div>
     </div>
 
     {{-- Right-click context menu for Market Watch --}}
@@ -267,6 +296,7 @@
 </div>
 
 @if ($account)
+<script src="/vendor/klinecharts.min.js"></script>
 <script>
 (() => {
     const csrf = document.querySelector('meta[name="csrf-token"]').content;
@@ -278,6 +308,10 @@
     let lastQuotes = {};
     let tickTab = false;
     let tickData = [];   // recent mid-prices for the selected symbol (tick chart)
+    let timeframe = 'M5';
+    let chartType = 'candle_solid';
+    let chart = null;
+    let chartDigits = 5;
 
     async function api(url, opts = {}) {
         const res = await fetch(url, {
@@ -295,6 +329,7 @@
         renderOrderPanel();
         tickData = [];
         if (tickTab) loadTicks();
+        loadChart();
     }
 
     function renderOrderPanel() {
@@ -321,8 +356,8 @@
             }
             const wasKnown = lastQuotes[q.symbol] !== undefined;
             lastQuotes[q.symbol] = q;
-            // Feed the live tick chart for the selected symbol.
-            if (q.symbol === selected && wasKnown && q.bid != null) appendLiveTick(q);
+            // Feed the live tick chart + candle for the selected symbol.
+            if (q.symbol === selected && wasKnown && q.bid != null) { appendLiveTick(q); updateLatestCandle(q); }
         }
         renderOrderPanel();
     }
@@ -669,6 +704,84 @@
         if (e.target.id === 'spec-modal') e.target.classList.add('hidden');
     });
 
+    // ---- Charting (KLineCharts) ----
+    function initChart() {
+        chart = klinecharts.init('chart');
+        chart.setStyles({
+            grid: { horizontal: { color: '#2a323d' }, vertical: { color: '#2a323d' } },
+            candle: {
+                type: chartType,
+                bar: { upColor: '#26a69a', downColor: '#ef5350', upBorderColor: '#26a69a', downBorderColor: '#ef5350', upWickColor: '#26a69a', downWickColor: '#ef5350' },
+                priceMark: { last: { line: { color: '#3b82f6' } } },
+                tooltip: { rect: { color: '#1c232c' }, text: { color: '#cbd5e1' } },
+            },
+            xAxis: { axisLine: { color: '#2a323d' }, tickText: { color: '#94a3b8' } },
+            yAxis: { axisLine: { color: '#2a323d' }, tickText: { color: '#94a3b8' } },
+            crosshair: { horizontal: { text: { backgroundColor: '#3b82f6' } }, vertical: { text: { backgroundColor: '#3b82f6' } } },
+        });
+        window.addEventListener('resize', () => chart && chart.resize());
+    }
+
+    async function loadChart() {
+        if (!chart || !selected) return;
+        chartDigits = digitsBySymbol[selected] ?? 5;
+        chart.setPriceVolumePrecision(chartDigits, 0);
+        document.getElementById('chart-symbol-label').textContent = selected;
+        document.getElementById('chart-tf-label').textContent = timeframe;
+        const { ok, json } = await api(`/api/instruments/${selected}/candles?timeframe=${timeframe}&limit=300`);
+        if (!ok) return;
+        chart.applyNewData(json.data.candles);
+    }
+
+    function updateLatestCandle(q) {
+        if (!chart || !q || q.bid == null) return;
+        const mid = (q.bid + q.ask) / 2;
+        const list = chart.getDataList();
+        const last = list[list.length - 1];
+        if (!last) return;
+        const tfMs = { M1: 60, M5: 300, M15: 900, M30: 1800, H1: 3600, H4: 14400, D1: 86400, W1: 604800, MN: 2592000 }[timeframe] * 1000;
+        const now = Date.now();
+        if (now < last.timestamp + tfMs) {
+            // Same bucket: update the forming candle.
+            chart.updateData({ timestamp: last.timestamp, open: last.open, high: Math.max(last.high, mid), low: Math.min(last.low, mid), close: mid, volume: (last.volume || 0) + 1 });
+        } else {
+            // New bucket: append a fresh candle.
+            const start = Math.floor(now / tfMs) * tfMs;
+            chart.updateData({ timestamp: start, open: mid, high: mid, low: mid, close: mid, volume: 1 });
+        }
+    }
+
+    function setChartType(type) {
+        chartType = type;
+        chart && chart.setStyles({ candle: { type } });
+        document.querySelectorAll('.ctype-btn').forEach(b => {
+            const active = b.dataset.ctype === type;
+            b.classList.toggle('text-accent', active);
+            b.classList.toggle('bg-panel2', active);
+            b.classList.toggle('text-gray-400', !active);
+        });
+    }
+
+    function setTimeframe(tf) {
+        timeframe = tf;
+        document.querySelectorAll('.tf-btn').forEach(b => {
+            const active = b.dataset.tf === tf;
+            b.classList.toggle('text-accent', active);
+            b.classList.toggle('bg-panel2', active);
+            b.classList.toggle('text-gray-400', !active);
+        });
+        loadChart();
+    }
+
+    document.getElementById('chart-types').addEventListener('click', e => {
+        const b = e.target.closest('[data-ctype]');
+        if (b) setChartType(b.dataset.ctype);
+    });
+    document.getElementById('chart-tfs').addEventListener('click', e => {
+        const b = e.target.closest('[data-tf]');
+        if (b) setTimeframe(b.dataset.tf);
+    });
+
     // Event wiring
     document.getElementById('watchlist').addEventListener('click', e => {
         const row = e.target.closest('tr[data-symbol]');
@@ -690,6 +803,7 @@
     document.getElementById('order-type').addEventListener('change', onOrderTypeChange);
 
     // Initial load + polling
+    initChart();
     if (selected) selectSymbol(selected);
     loadQuotes(); loadAccount(); loadPositions(); loadOrders();
     setInterval(() => { loadQuotes(); loadPositions(); loadOrders(); }, 1500);
