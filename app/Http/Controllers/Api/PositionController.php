@@ -44,4 +44,34 @@ class PositionController extends Controller
             'status'      => $closed->status,
         ]);
     }
+
+    public function modify(Request $request, Position $position, TradingService $trading): JsonResponse
+    {
+        $account = $this->activeAccount($request);
+
+        if ($position->trading_account_id !== $account->id) {
+            return $this->fail('FORBIDDEN', 'This position does not belong to your account.', 403);
+        }
+
+        $validated = $request->validate([
+            'stop_loss'   => ['nullable', 'numeric', 'gt:0'],
+            'take_profit' => ['nullable', 'numeric', 'gt:0'],
+        ]);
+
+        try {
+            $updated = $trading->modifyPosition(
+                $position,
+                $validated['stop_loss'] ?? null,
+                $validated['take_profit'] ?? null,
+            );
+        } catch (RuntimeException $e) {
+            return $this->fail('MODIFY_FAILED', $e->getMessage(), 422);
+        }
+
+        return $this->ok([
+            'ticket'      => $updated->ticket,
+            'stop_loss'   => $updated->stop_loss,
+            'take_profit' => $updated->take_profit,
+        ]);
+    }
 }

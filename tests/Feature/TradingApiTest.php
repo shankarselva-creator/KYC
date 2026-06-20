@@ -60,7 +60,7 @@ class TradingApiTest extends TestCase
 
         $open = $this->actingAs($user)->postJson('/api/orders', [
             'symbol' => 'EURUSD',
-            'side' => 'buy',
+            'type' => 'buy',
             'volume' => 0.10,
         ]);
 
@@ -81,7 +81,7 @@ class TradingApiTest extends TestCase
 
         $response = $this->actingAs($user)->postJson('/api/orders', [
             'symbol' => 'FAKE99',
-            'side' => 'buy',
+            'type' => 'buy',
             'volume' => 0.10,
         ]);
 

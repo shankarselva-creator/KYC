@@ -61,6 +61,9 @@ app/
 - P/L is computed in the instrument's quote currency, then converted to the account
   currency via `CurrencyConverter` (uses current mid-prices; falls back to parity).
 - `AccountProvisioner` creates a funded demo account on registration.
+- `TradingEngine` is the matching loop: on each tick it fills pending orders whose
+  trigger is reached and closes positions that hit SL/TP. Run from `quotes:poll`
+  (after `QuoteService::refresh()`), so the loop/scheduler drives execution.
 
 ---
 
@@ -74,6 +77,8 @@ Tick             instrument_id, bid, ask, tick_at   (rolling history for the tic
 TradingAccount   user_id, login, type(demo|live), currency, leverage, balance
 Position         ticket, account, instrument, side(buy|sell), volume, open/close price,
                  sl, tp, commission, swap, profit, status(open|closed), timestamps
+Order            ticket, account, instrument, type(buy/sell _limit/_stop), volume, price,
+                 sl, tp, status(pending|filled|cancelled|expired), position_id  (pending orders)
 Transaction      account, position, type, amount, balance_after   (ledger)
 ```
 
@@ -88,8 +93,11 @@ Transaction      account, position, type, amount, balance_after   (ledger)
 | GET  | `/api/instruments/{symbol}/ticks` | Recent tick history (tick chart) |
 | GET  | `/api/account` | Account info + live metrics |
 | GET  | `/api/positions` | Open positions with live P/L |
-| POST | `/api/orders` | Open a market order (`symbol, side, volume, sl?, tp?`) |
+| GET  | `/api/orders` | Pending orders (limit/stop) |
+| POST | `/api/orders` | Market order (`type=buy\|sell`) or pending (`type=*_limit\|*_stop, price`) |
+| POST | `/api/orders/{order}/cancel` | Cancel a pending order |
 | POST | `/api/positions/{position}/close` | Close a position |
+| POST | `/api/positions/{position}/modify` | Update a position's SL/TP |
 
 Response envelope: `{ "data": ..., "meta": {}, "error": null }`.
 Errors: `{ "data": null, "error": { "code", "message", "details" } }`.
@@ -130,8 +138,8 @@ Seeded demo login: `trader@example.com` / `password`.
 
 ## Roadmap (not yet built)
 
-Charting (candlesticks/indicators), pending orders (limit/stop), SL/TP auto-execution,
-WebSocket streaming prices, multiple accounts per user, deposits/withdrawals UI,
+Charting (candlesticks/indicators), drawing tools, WebSocket streaming prices,
+toolbox tabs (Journal), multiple accounts per user, deposits/withdrawals UI,
 swap/commission accrual.
 
 ---

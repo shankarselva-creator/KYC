@@ -3,6 +3,7 @@
 namespace App\Services\Trading;
 
 use App\Models\Instrument;
+use App\Models\Order;
 use App\Models\Position;
 use App\Models\Quote;
 use App\Models\TradingAccount;
@@ -16,7 +17,8 @@ class TradingService
     /**
      * Open a market position on the given account.
      *
-     * @param  array{stop_loss?: float|null, take_profit?: float|null}  $options
+     * @param  array{stop_loss?: float|null, take_profit?: float|null, price?: float|null}  $options
+     *         Pass "price" to fill at a specific level (used when a pending order triggers).
      */
     public function openPosition(
         TradingAccount $account,
@@ -32,7 +34,7 @@ class TradingService
         }
 
         $quote = $this->quoteFor($instrument);
-        $price = $side === 'buy' ? $quote->ask : $quote->bid;
+        $price = $options['price'] ?? ($side === 'buy' ? $quote->ask : $quote->bid);
 
         $converter = $this->converter();
         $requiredMargin = $this->requiredMargin($instrument, $volume, $price, $account->leverage, $converter, $account->currency);
@@ -246,6 +248,149 @@ class TradingService
         );
     }
 
+    /**
+     * Place a pending order (buy/sell limit or stop).
+     *
+     * @param  array{stop_loss?: float|null, take_profit?: float|null, expires_at?: \DateTimeInterface|null}  $options
+     */
+    public function placePendingOrder(
+        TradingAccount $account,
+        Instrument $instrument,
+        string $type,
+        float $volume,
+        float $price,
+        array $options = [],
+    ): Order {
+        $this->assertValidVolume($instrument, $volume);
+
+        if (! $account->is_active) {
+            throw new RuntimeException('Trading account is inactive.');
+        }
+        if (! in_array($type, ['buy_limit', 'sell_limit', 'buy_stop', 'sell_stop'], true)) {
+            throw new RuntimeException('Invalid pending order type.');
+        }
+        if ($price <= 0) {
+            throw new RuntimeException('Order price must be greater than zero.');
+        }
+
+        $quote = $this->quoteFor($instrument);
+        $this->assertPendingPrice($type, $price, $quote);
+
+        return Order::create([
+            'ticket'             => $this->generateTicket(),
+            'trading_account_id' => $account->id,
+            'instrument_id'      => $instrument->id,
+            'type'               => $type,
+            'volume'             => $volume,
+            'price'              => $price,
+            'stop_loss'          => $options['stop_loss'] ?? null,
+            'take_profit'        => $options['take_profit'] ?? null,
+            'status'             => 'pending',
+            'expires_at'         => $options['expires_at'] ?? null,
+            'placed_at'          => Carbon::now(),
+        ]);
+    }
+
+    public function cancelPendingOrder(Order $order): Order
+    {
+        if (! $order->isPending()) {
+            throw new RuntimeException('Only pending orders can be cancelled.');
+        }
+
+        $order->update(['status' => 'cancelled']);
+
+        return $order->refresh();
+    }
+
+    /**
+     * Update the Stop Loss / Take Profit of an open position.
+     */
+    public function modifyPosition(Position $position, ?float $stopLoss, ?float $takeProfit): Position
+    {
+        if (! $position->isOpen()) {
+            throw new RuntimeException('Cannot modify a closed position.');
+        }
+
+        $position->loadMissing('instrument.quote');
+        $this->assertSlTp($position->side, $stopLoss, $takeProfit, $position->instrument->quote);
+
+        $position->update(['stop_loss' => $stopLoss, 'take_profit' => $takeProfit]);
+
+        return $position->refresh();
+    }
+
+    /**
+     * Pending orders for an account, decorated with the live market price.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function pendingOrdersList(TradingAccount $account): array
+    {
+        $orders = $account->pendingOrders()->with('instrument.quote')->latest('placed_at')->get();
+
+        return $orders->map(function (Order $order) {
+            $quote = $order->instrument->quote;
+            $market = $quote ? ($order->side() === 'buy' ? $quote->ask : $quote->bid) : null;
+
+            return [
+                'id'           => $order->id,
+                'ticket'       => $order->ticket,
+                'symbol'       => $order->instrument->symbol,
+                'type'         => $order->type,
+                'side'         => $order->side(),
+                'volume'       => $order->volume,
+                'price'        => $order->price,
+                'market_price' => $market,
+                'stop_loss'    => $order->stop_loss,
+                'take_profit'  => $order->take_profit,
+                'placed_at'    => $order->placed_at?->toIso8601String(),
+            ];
+        })->all();
+    }
+
+    private function assertPendingPrice(string $type, float $price, Quote $quote): void
+    {
+        $ok = match ($type) {
+            'buy_limit'  => $price < $quote->ask,
+            'sell_limit' => $price > $quote->bid,
+            'buy_stop'   => $price > $quote->ask,
+            'sell_stop'  => $price < $quote->bid,
+        };
+
+        if (! $ok) {
+            $rel = match ($type) {
+                'buy_limit'  => 'below the current Ask',
+                'sell_limit' => 'above the current Bid',
+                'buy_stop'   => 'above the current Ask',
+                'sell_stop'  => 'below the current Bid',
+            };
+            throw new RuntimeException('A '.str_replace('_', ' ', $type)." price must be {$rel}.");
+        }
+    }
+
+    private function assertSlTp(string $side, ?float $sl, ?float $tp, ?Quote $quote): void
+    {
+        if (! $quote) {
+            return;
+        }
+
+        if ($side === 'buy') {
+            if ($sl !== null && $sl >= $quote->bid) {
+                throw new RuntimeException('Stop Loss for a buy must be below the current Bid.');
+            }
+            if ($tp !== null && $tp <= $quote->bid) {
+                throw new RuntimeException('Take Profit for a buy must be above the current Bid.');
+            }
+        } else {
+            if ($sl !== null && $sl <= $quote->ask) {
+                throw new RuntimeException('Stop Loss for a sell must be above the current Ask.');
+            }
+            if ($tp !== null && $tp >= $quote->ask) {
+                throw new RuntimeException('Take Profit for a sell must be below the current Ask.');
+            }
+        }
+    }
+
     private function quoteFor(Instrument $instrument): Quote
     {
         $quote = $instrument->quote()->first();
@@ -282,7 +427,7 @@ class TradingService
     {
         do {
             $ticket = random_int(10_000_000, 99_999_999);
-        } while (Position::where('ticket', $ticket)->exists());
+        } while (Position::where('ticket', $ticket)->exists() || Order::where('ticket', $ticket)->exists());
 
         return $ticket;
     }

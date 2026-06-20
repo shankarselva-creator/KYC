@@ -39,7 +39,10 @@ Route::middleware('auth')->group(function () {
         Route::get('/instruments/{symbol}/ticks', [InstrumentController::class, 'ticks'])->name('instruments.ticks');
         Route::get('/account', [AccountController::class, 'show'])->name('account');
         Route::get('/positions', [PositionController::class, 'index'])->name('positions');
+        Route::get('/orders', [OrderController::class, 'index'])->name('orders.index');
         Route::post('/orders', [OrderController::class, 'store'])->name('orders.store');
+        Route::post('/orders/{order}/cancel', [OrderController::class, 'cancel'])->name('orders.cancel');
         Route::post('/positions/{position}/close', [PositionController::class, 'close'])->name('positions.close');
+        Route::post('/positions/{position}/modify', [PositionController::class, 'modify'])->name('positions.modify');
     });
 });

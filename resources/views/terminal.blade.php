@@ -93,8 +93,14 @@
         </section>
 
         {{-- Order panel --}}
-        <section class="col-span-12 md:col-span-8 lg:col-span-3 bg-panel p-4 flex flex-col gap-3">
-            <div class="text-xs uppercase tracking-wide text-gray-400">New Order</div>
+        <section class="col-span-12 md:col-span-8 lg:col-span-3 bg-panel p-4 flex flex-col gap-3 overflow-auto">
+            <div class="flex items-center justify-between">
+                <div class="text-xs uppercase tracking-wide text-gray-400">New Order</div>
+                <label class="flex items-center gap-1 text-[11px] text-gray-400 cursor-pointer select-none">
+                    <input id="one-click" type="checkbox" checked class="rounded border-edge bg-panel2">
+                    One-click
+                </label>
+            </div>
 
             <div class="bg-panel2 border border-edge rounded-lg p-3">
                 <div class="text-lg font-bold text-white" id="order-symbol">—</div>
@@ -109,6 +115,24 @@
                         <div class="text-xl font-bold text-up tabular-nums" id="order-ask">—</div>
                     </div>
                 </div>
+            </div>
+
+            <div>
+                <label class="block text-xs text-gray-400 mb-1">Order type</label>
+                <select id="order-type"
+                    class="w-full bg-panel2 border border-edge rounded-md px-3 py-2 text-sm focus:outline-none focus:border-accent">
+                    <option value="market">Market Execution</option>
+                    <option value="buy_limit">Buy Limit</option>
+                    <option value="sell_limit">Sell Limit</option>
+                    <option value="buy_stop">Buy Stop</option>
+                    <option value="sell_stop">Sell Stop</option>
+                </select>
+            </div>
+
+            <div id="price-wrap" class="hidden">
+                <label class="block text-xs text-gray-400 mb-1">Pending price</label>
+                <input id="order-price" type="number" step="0.00001" placeholder="trigger price"
+                    class="w-full bg-panel2 border border-edge rounded-md px-3 py-2 text-sm focus:outline-none focus:border-accent tabular-nums">
             </div>
 
             <div>
@@ -130,15 +154,18 @@
                 </div>
             </div>
 
-            <div class="grid grid-cols-2 gap-2 mt-1">
+            <div id="market-actions" class="grid grid-cols-2 gap-2 mt-1">
                 <button id="btn-sell" class="bg-down hover:brightness-110 text-white font-semibold rounded-md py-2.5 text-sm transition">SELL</button>
                 <button id="btn-buy" class="bg-up hover:brightness-110 text-white font-semibold rounded-md py-2.5 text-sm transition">BUY</button>
             </div>
+            <button id="btn-pending" class="hidden bg-accent hover:bg-blue-600 text-white font-semibold rounded-md py-2.5 text-sm transition mt-1">
+                Place Pending Order
+            </button>
 
             <div id="order-msg" class="text-xs min-h-[1rem]"></div>
         </section>
 
-        {{-- Open positions --}}
+        {{-- Open positions + pending orders --}}
         <section class="col-span-12 lg:col-span-6 bg-panel flex flex-col overflow-hidden">
             <div class="px-3 py-2 text-xs uppercase tracking-wide text-gray-400 border-b border-edge flex justify-between">
                 <span>Open Positions</span>
@@ -154,12 +181,37 @@
                             <th class="text-right px-2 py-1.5 font-medium">Volume</th>
                             <th class="text-right px-2 py-1.5 font-medium">Open</th>
                             <th class="text-right px-2 py-1.5 font-medium">Current</th>
+                            <th class="text-right px-2 py-1.5 font-medium">S/L</th>
+                            <th class="text-right px-2 py-1.5 font-medium">T/P</th>
                             <th class="text-right px-2 py-1.5 font-medium">Profit</th>
                             <th class="px-3 py-1.5"></th>
                         </tr>
                     </thead>
                     <tbody id="positions">
-                        <tr><td colspan="8" class="px-3 py-4 text-center text-gray-500">No open positions</td></tr>
+                        <tr><td colspan="10" class="px-3 py-4 text-center text-gray-500">No open positions</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="px-3 py-2 text-xs uppercase tracking-wide text-gray-400 border-y border-edge flex justify-between">
+                <span>Pending Orders</span>
+                <span id="orders-count" class="text-gray-500"></span>
+            </div>
+            <div class="overflow-auto max-h-44">
+                <table class="w-full text-xs">
+                    <thead class="text-gray-500 sticky top-0 bg-panel">
+                        <tr>
+                            <th class="text-left px-3 py-1.5 font-medium">Ticket</th>
+                            <th class="text-left px-2 py-1.5 font-medium">Symbol</th>
+                            <th class="text-left px-2 py-1.5 font-medium">Type</th>
+                            <th class="text-right px-2 py-1.5 font-medium">Volume</th>
+                            <th class="text-right px-2 py-1.5 font-medium">Price</th>
+                            <th class="text-right px-2 py-1.5 font-medium">Market</th>
+                            <th class="px-3 py-1.5"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="orders">
+                        <tr><td colspan="7" class="px-3 py-3 text-center text-gray-500">No pending orders</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -184,6 +236,31 @@
                 <button id="spec-close" class="text-gray-400 hover:text-white text-lg leading-none">✕</button>
             </div>
             <table class="w-full text-xs" id="spec-table"></table>
+        </div>
+    </div>
+
+    {{-- Modify SL/TP modal --}}
+    <div id="modify-modal" class="hidden fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+        <div class="bg-panel border border-edge rounded-xl w-full max-w-xs">
+            <div class="flex items-center justify-between px-4 py-3 border-b border-edge">
+                <div class="font-semibold text-white text-sm">Modify <span id="modify-ticket"></span></div>
+                <button id="modify-close" class="text-gray-400 hover:text-white text-lg leading-none">✕</button>
+            </div>
+            <div class="p-4 space-y-3">
+                <div class="text-xs text-gray-400" id="modify-info"></div>
+                <div>
+                    <label class="block text-xs text-gray-400 mb-1">Stop Loss</label>
+                    <input id="modify-sl" type="number" step="0.00001" placeholder="none"
+                        class="w-full bg-panel2 border border-edge rounded-md px-3 py-2 text-sm focus:outline-none focus:border-accent tabular-nums">
+                </div>
+                <div>
+                    <label class="block text-xs text-gray-400 mb-1">Take Profit</label>
+                    <input id="modify-tp" type="number" step="0.00001" placeholder="none"
+                        class="w-full bg-panel2 border border-edge rounded-md px-3 py-2 text-sm focus:outline-none focus:border-accent tabular-nums">
+                </div>
+                <div id="modify-msg" class="text-xs min-h-[1rem] text-down"></div>
+                <button id="modify-save" class="w-full bg-accent hover:bg-blue-600 text-white font-semibold rounded-md py-2 text-sm">Save</button>
+            </div>
         </div>
     </div>
     @endif
@@ -304,13 +381,16 @@
         const rows = json.data;
         document.getElementById('positions-count').textContent = rows.length ? `${rows.length} open` : '';
         if (!rows.length) {
-            tbody.innerHTML = '<tr><td colspan="8" class="px-3 py-4 text-center text-gray-500">No open positions</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="10" class="px-3 py-4 text-center text-gray-500">No open positions</td></tr>';
             return;
         }
         tbody.innerHTML = rows.map(p => {
             const d = digitsBySymbol[p.symbol] ?? 5;
             const pc = p.profit > 0 ? 'text-up' : p.profit < 0 ? 'text-down' : 'text-gray-300';
             const sc = p.side === 'buy' ? 'text-up' : 'text-down';
+            const sl = p.stop_loss ? fmt(p.stop_loss, d) : '—';
+            const tp = p.take_profit ? fmt(p.take_profit, d) : '—';
+            const meta = encodeURIComponent(JSON.stringify({ id: p.id, ticket: p.ticket, symbol: p.symbol, side: p.side, sl: p.stop_loss, tp: p.take_profit, digits: d }));
             return `<tr class="border-t border-edge/50">
                 <td class="px-3 py-1.5 tabular-nums text-gray-400">${p.ticket}</td>
                 <td class="px-2 py-1.5 font-medium">${p.symbol}</td>
@@ -318,35 +398,140 @@
                 <td class="px-2 py-1.5 text-right tabular-nums">${fmt(p.volume)}</td>
                 <td class="px-2 py-1.5 text-right tabular-nums">${fmt(p.open_price, d)}</td>
                 <td class="px-2 py-1.5 text-right tabular-nums">${fmt(p.current_price, d)}</td>
+                <td class="px-2 py-1.5 text-right tabular-nums text-gray-400">${sl}</td>
+                <td class="px-2 py-1.5 text-right tabular-nums text-gray-400">${tp}</td>
                 <td class="px-2 py-1.5 text-right tabular-nums ${pc}">${fmt(p.profit)}</td>
-                <td class="px-3 py-1.5 text-right">
+                <td class="px-3 py-1.5 text-right whitespace-nowrap">
+                    <button data-modify="${meta}" class="text-gray-400 hover:text-accent mr-2" title="Modify S/L · T/P">✎</button>
                     <button data-close="${p.id}" class="text-gray-400 hover:text-down" title="Close">✕</button>
                 </td>
             </tr>`;
         }).join('');
     }
 
-    async function placeOrder(side) {
+    async function loadOrders() {
+        const { ok, json } = await api('{{ route('api.orders.index') }}');
+        if (!ok) return;
+        const tbody = document.getElementById('orders');
+        const rows = json.data;
+        document.getElementById('orders-count').textContent = rows.length ? `${rows.length} pending` : '';
+        if (!rows.length) {
+            tbody.innerHTML = '<tr><td colspan="7" class="px-3 py-3 text-center text-gray-500">No pending orders</td></tr>';
+            return;
+        }
+        const label = { buy_limit: 'Buy Limit', sell_limit: 'Sell Limit', buy_stop: 'Buy Stop', sell_stop: 'Sell Stop' };
+        tbody.innerHTML = rows.map(o => {
+            const d = digitsBySymbol[o.symbol] ?? 5;
+            const sc = o.side === 'buy' ? 'text-up' : 'text-down';
+            return `<tr class="border-t border-edge/50">
+                <td class="px-3 py-1.5 tabular-nums text-gray-400">${o.ticket}</td>
+                <td class="px-2 py-1.5 font-medium">${o.symbol}</td>
+                <td class="px-2 py-1.5 ${sc}">${label[o.type] || o.type}</td>
+                <td class="px-2 py-1.5 text-right tabular-nums">${fmt(o.volume)}</td>
+                <td class="px-2 py-1.5 text-right tabular-nums">${fmt(o.price, d)}</td>
+                <td class="px-2 py-1.5 text-right tabular-nums text-gray-400">${o.market_price != null ? fmt(o.market_price, d) : '—'}</td>
+                <td class="px-3 py-1.5 text-right">
+                    <button data-cancel="${o.id}" class="text-gray-400 hover:text-down" title="Cancel">✕</button>
+                </td>
+            </tr>`;
+        }).join('');
+    }
+
+    async function cancelOrder(id) {
+        const { ok, json } = await api(`/api/orders/${id}/cancel`, { method: 'POST' });
+        const msg = document.getElementById('order-msg');
+        msg.className = 'text-xs min-h-[1rem] ' + (ok ? 'text-gray-300' : 'text-down');
+        msg.textContent = ok ? `Cancelled pending #${json.data.ticket}` : (json.error?.message || 'Cancel failed.');
+        loadOrders();
+    }
+
+    // Market order (one-click or confirmed). `side` = buy|sell.
+    async function placeMarket(side) {
+        const volume = parseFloat(document.getElementById('order-volume').value);
+        if (!document.getElementById('one-click').checked) {
+            if (!confirm(`${side.toUpperCase()} ${volume} ${selected} at market?`)) return;
+        }
+        await submitOrder({
+            type: side, symbol: selected, volume,
+            stop_loss: parseFloat(document.getElementById('order-sl').value) || null,
+            take_profit: parseFloat(document.getElementById('order-tp').value) || null,
+        });
+    }
+
+    // Pending order using the selected order type + trigger price.
+    async function placePending() {
+        await submitOrder({
+            type: document.getElementById('order-type').value,
+            symbol: selected,
+            volume: parseFloat(document.getElementById('order-volume').value),
+            price: parseFloat(document.getElementById('order-price').value) || null,
+            stop_loss: parseFloat(document.getElementById('order-sl').value) || null,
+            take_profit: parseFloat(document.getElementById('order-tp').value) || null,
+        });
+    }
+
+    async function submitOrder(body) {
         const msg = document.getElementById('order-msg');
         msg.className = 'text-xs min-h-[1rem] text-gray-400';
         msg.textContent = 'Placing order…';
-        const body = {
-            symbol: selected,
-            side,
-            volume: parseFloat(document.getElementById('order-volume').value),
-            stop_loss: parseFloat(document.getElementById('order-sl').value) || null,
-            take_profit: parseFloat(document.getElementById('order-tp').value) || null,
-        };
         const { ok, json } = await api('{{ route('api.orders.store') }}', { method: 'POST', body: JSON.stringify(body) });
         if (ok) {
             msg.className = 'text-xs min-h-[1rem] text-up';
-            msg.textContent = `${side.toUpperCase()} ${body.volume} ${selected} filled @ ${json.data.open_price} (#${json.data.ticket})`;
-            await Promise.all([loadPositions(), loadAccount()]);
+            msg.textContent = json.data.kind === 'pending'
+                ? `${json.data.type.replace('_', ' ')} ${json.data.volume} ${json.data.symbol} @ ${json.data.price} placed (#${json.data.ticket})`
+                : `${json.data.side.toUpperCase()} ${json.data.volume} ${json.data.symbol} filled @ ${json.data.open_price} (#${json.data.ticket})`;
+            await Promise.all([loadPositions(), loadOrders(), loadAccount()]);
         } else {
             msg.className = 'text-xs min-h-[1rem] text-down';
-            msg.textContent = json.error?.message || 'Order failed.';
+            msg.textContent = json.error?.message || (json.errors ? Object.values(json.errors)[0][0] : 'Order failed.');
         }
     }
+
+    // Toggle order-type UI between market and pending modes.
+    function onOrderTypeChange() {
+        const pending = document.getElementById('order-type').value !== 'market';
+        document.getElementById('price-wrap').classList.toggle('hidden', !pending);
+        document.getElementById('market-actions').classList.toggle('hidden', pending);
+        document.getElementById('btn-pending').classList.toggle('hidden', !pending);
+        // Prefill a sensible trigger price from the current quote.
+        const q = lastQuotes[selected];
+        const priceEl = document.getElementById('order-price');
+        if (pending && q && !priceEl.value) {
+            priceEl.value = (document.getElementById('order-type').value.startsWith('buy') ? q.ask : q.bid).toFixed(digitsBySymbol[selected] ?? 5);
+        }
+    }
+
+    // ---- Modify SL/TP modal ----
+    let modifyId = null;
+    function openModify(meta) {
+        const m = JSON.parse(decodeURIComponent(meta));
+        modifyId = m.id;
+        document.getElementById('modify-ticket').textContent = '#' + m.ticket;
+        document.getElementById('modify-info').textContent = `${m.symbol} ${m.side.toUpperCase()}`;
+        document.getElementById('modify-sl').value = m.sl ?? '';
+        document.getElementById('modify-tp').value = m.tp ?? '';
+        document.getElementById('modify-msg').textContent = '';
+        document.getElementById('modify-modal').classList.remove('hidden');
+    }
+    document.getElementById('modify-close').addEventListener('click', () =>
+        document.getElementById('modify-modal').classList.add('hidden'));
+    document.getElementById('modify-modal').addEventListener('click', e => {
+        if (e.target.id === 'modify-modal') e.target.classList.add('hidden');
+    });
+    document.getElementById('modify-save').addEventListener('click', async () => {
+        if (!modifyId) return;
+        const body = {
+            stop_loss: parseFloat(document.getElementById('modify-sl').value) || null,
+            take_profit: parseFloat(document.getElementById('modify-tp').value) || null,
+        };
+        const { ok, json } = await api(`/api/positions/${modifyId}/modify`, { method: 'POST', body: JSON.stringify(body) });
+        if (ok) {
+            document.getElementById('modify-modal').classList.add('hidden');
+            await Promise.all([loadPositions(), loadAccount()]);
+        } else {
+            document.getElementById('modify-msg').textContent = json.error?.message || 'Modify failed.';
+        }
+    });
 
     async function closePosition(id) {
         const { ok, json } = await api(`/api/positions/${id}/close`, { method: 'POST' });
@@ -490,16 +675,24 @@
         if (row) selectSymbol(row.dataset.symbol);
     });
     document.getElementById('positions').addEventListener('click', e => {
-        const btn = e.target.closest('[data-close]');
-        if (btn) closePosition(btn.dataset.close);
+        const closeBtn = e.target.closest('[data-close]');
+        if (closeBtn) { closePosition(closeBtn.dataset.close); return; }
+        const modBtn = e.target.closest('[data-modify]');
+        if (modBtn) openModify(modBtn.dataset.modify);
     });
-    document.getElementById('btn-buy').addEventListener('click', () => placeOrder('buy'));
-    document.getElementById('btn-sell').addEventListener('click', () => placeOrder('sell'));
+    document.getElementById('orders').addEventListener('click', e => {
+        const btn = e.target.closest('[data-cancel]');
+        if (btn) cancelOrder(btn.dataset.cancel);
+    });
+    document.getElementById('btn-buy').addEventListener('click', () => placeMarket('buy'));
+    document.getElementById('btn-sell').addEventListener('click', () => placeMarket('sell'));
+    document.getElementById('btn-pending').addEventListener('click', placePending);
+    document.getElementById('order-type').addEventListener('change', onOrderTypeChange);
 
     // Initial load + polling
     if (selected) selectSymbol(selected);
-    loadQuotes(); loadAccount(); loadPositions();
-    setInterval(() => { loadQuotes(); loadPositions(); }, 1500);
+    loadQuotes(); loadAccount(); loadPositions(); loadOrders();
+    setInterval(() => { loadQuotes(); loadPositions(); loadOrders(); }, 1500);
     setInterval(loadAccount, 2000);
 })();
 </script>

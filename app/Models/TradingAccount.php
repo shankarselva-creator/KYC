@@ -40,4 +40,14 @@ class TradingAccount extends Model
     {
         return $this->hasMany(Transaction::class);
     }
+
+    public function orders(): HasMany
+    {
+        return $this->hasMany(Order::class);
+    }
+
+    public function pendingOrders(): HasMany
+    {
+        return $this->orders()->where('status', 'pending');
+    }
 }
