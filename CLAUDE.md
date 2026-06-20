@@ -62,6 +62,9 @@ app/
 - The terminal embeds **KLineCharts** (vendored at `public/vendor/klinecharts.min.js`,
   no CDN). 3 chart types (Candles / Bars / Line) and 9 timeframes; the latest
   candle updates live from polled quotes.
+- 30 technical indicators via a categorized menu (Trend / Oscillators / Volumes /
+  Bill Williams). Most are KLineCharts built-ins; Ichimoku, Alligator, Stochastic
+  and Market Facilitation Index are registered as custom indicators in the view.
 
 ### Trading engine
 
@@ -149,9 +152,9 @@ Seeded demo login: `trader@example.com` / `password`.
 
 ## Roadmap (not yet built)
 
-Chart indicators (MA/MACD/RSI/…) and drawing tools, WebSocket streaming prices,
-toolbox Journal tab, multiple accounts per user, deposits/withdrawals UI,
-swap/commission accrual.
+Chart drawing tools (trendlines, channels, Fibonacci, shapes), WebSocket
+streaming prices, toolbox Journal tab, multiple accounts per user,
+deposits/withdrawals UI, swap/commission accrual.
 
 ---
 

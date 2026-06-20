@@ -52,6 +52,11 @@
             <button data-tf="{{ $tf }}" class="tf-btn px-2 py-1 rounded font-medium {{ $tf === 'M5' ? 'text-accent bg-panel2' : 'text-gray-400 hover:text-gray-200' }}">{{ $tf }}</button>
             @endforeach
         </div>
+        <div class="w-px h-4 bg-edge mx-1"></div>
+        <div class="relative">
+            <button id="ind-btn" class="px-2 py-1 rounded text-gray-300 hover:text-white hover:bg-panel2">Indicators ▾</button>
+            <div id="ind-menu" class="hidden absolute z-40 mt-1 left-0 top-full bg-panel2 border border-edge rounded-md shadow-lg w-60 max-h-[72vh] overflow-auto"></div>
+        </div>
     </div>
 
     <div class="flex-1 grid grid-cols-12 gap-px bg-edge overflow-hidden min-h-0">
@@ -706,6 +711,7 @@
 
     // ---- Charting (KLineCharts) ----
     function initChart() {
+        registerCustomIndicators();
         chart = klinecharts.init('chart');
         chart.setStyles({
             grid: { horizontal: { color: '#2a323d' }, vertical: { color: '#2a323d' } },
@@ -781,6 +787,177 @@
         const b = e.target.closest('[data-tf]');
         if (b) setTimeframe(b.dataset.tf);
     });
+
+    // ---- Technical indicators (KLineCharts built-ins + custom) ----
+    // category: Trend | Oscillators | Volumes | Bill Williams; overlay = drawn on the price pane.
+    const INDICATORS = [
+        // Trend
+        { name: 'MA', label: 'Moving Average', cat: 'Trend', overlay: true },
+        { name: 'EMA', label: 'Exponential MA', cat: 'Trend', overlay: true },
+        { name: 'SMA', label: 'Smoothed MA', cat: 'Trend', overlay: true },
+        { name: 'BBI', label: 'Bull & Bear Index', cat: 'Trend', overlay: true },
+        { name: 'BOLL', label: 'Bollinger Bands', cat: 'Trend', overlay: true },
+        { name: 'SAR', label: 'Parabolic SAR', cat: 'Trend', overlay: true },
+        { name: 'ICHIMOKU', label: 'Ichimoku Kinko Hyo', cat: 'Trend', overlay: true },
+        { name: 'DMA', label: 'DMA', cat: 'Trend', overlay: false },
+        { name: 'TRIX', label: 'TRIX', cat: 'Trend', overlay: false },
+        { name: 'DMI', label: 'DMI / ADX', cat: 'Trend', overlay: false },
+        // Oscillators
+        { name: 'MACD', label: 'MACD', cat: 'Oscillators', overlay: false },
+        { name: 'RSI', label: 'Relative Strength', cat: 'Oscillators', overlay: false },
+        { name: 'KDJ', label: 'KDJ', cat: 'Oscillators', overlay: false },
+        { name: 'STOCH', label: 'Stochastic', cat: 'Oscillators', overlay: false },
+        { name: 'CCI', label: 'CCI', cat: 'Oscillators', overlay: false },
+        { name: 'WR', label: 'Williams %R', cat: 'Oscillators', overlay: false },
+        { name: 'BIAS', label: 'BIAS', cat: 'Oscillators', overlay: false },
+        { name: 'BRAR', label: 'BRAR', cat: 'Oscillators', overlay: false },
+        { name: 'CR', label: 'CR', cat: 'Oscillators', overlay: false },
+        { name: 'PSY', label: 'PSY', cat: 'Oscillators', overlay: false },
+        { name: 'ROC', label: 'Rate of Change', cat: 'Oscillators', overlay: false },
+        { name: 'MTM', label: 'Momentum', cat: 'Oscillators', overlay: false },
+        // Volumes
+        { name: 'VOL', label: 'Volume', cat: 'Volumes', overlay: false },
+        { name: 'OBV', label: 'On Balance Volume', cat: 'Volumes', overlay: false },
+        { name: 'VR', label: 'Volume Ratio', cat: 'Volumes', overlay: false },
+        { name: 'PVT', label: 'Price Volume Trend', cat: 'Volumes', overlay: false },
+        { name: 'EMV', label: 'Ease of Movement', cat: 'Volumes', overlay: false },
+        // Bill Williams
+        { name: 'AO', label: 'Awesome Oscillator', cat: 'Bill Williams', overlay: false },
+        { name: 'ALLIGATOR', label: 'Alligator', cat: 'Bill Williams', overlay: true },
+        { name: 'BWMFI', label: 'Market Facilitation Index', cat: 'Bill Williams', overlay: false },
+    ];
+    const activeIndicators = {}; // name -> paneId
+
+    function registerCustomIndicators() {
+        if (!window.klinecharts || window.__indicatorsRegistered) return;
+        window.__indicatorsRegistered = true;
+        const reg = klinecharts.registerIndicator;
+
+        // Stochastic Oscillator (%K / %D)
+        reg({
+            name: 'STOCH', shortName: 'STOCH', calcParams: [14, 3, 3],
+            figures: [{ key: 'k', title: 'K: ', type: 'line' }, { key: 'd', title: 'D: ', type: 'line' }],
+            calc: (data, { calcParams: [n, kP, dP] }) => {
+                const ks = [], res = [];
+                for (let i = 0; i < data.length; i++) {
+                    let hh = -Infinity, ll = Infinity;
+                    for (let j = Math.max(0, i - n + 1); j <= i; j++) { hh = Math.max(hh, data[j].high); ll = Math.min(ll, data[j].low); }
+                    ks.push(hh === ll ? 0 : (data[i].close - ll) / (hh - ll) * 100);
+                    const kS = ks.slice(Math.max(0, ks.length - kP));
+                    res.push({ _k: kS.reduce((a, b) => a + b, 0) / kS.length });
+                }
+                for (let i = 0; i < res.length; i++) {
+                    let s = 0, c = 0;
+                    for (let j = Math.max(0, i - dP + 1); j <= i; j++) { s += res[j]._k; c++; }
+                    res[i] = { k: res[i]._k, d: s / c };
+                }
+                return res;
+            },
+        });
+
+        // Alligator (jaw 13 / teeth 8 / lips 5 smoothed MAs of median price, shifted)
+        const smma = (src, p) => { const out = []; let prev; for (let i = 0; i < src.length; i++) { if (i < p - 1) { out.push(undefined); continue; } if (i === p - 1) { prev = src.slice(0, p).reduce((a, b) => a + b, 0) / p; } else { prev = (prev * (p - 1) + src[i]) / p; } out.push(prev); } return out; };
+        const shift = (arr, s) => { const out = new Array(arr.length); for (let i = 0; i < arr.length; i++) { const t = i + s; if (t < arr.length) out[t] = arr[i]; } return out; };
+        reg({
+            name: 'ALLIGATOR', shortName: 'ALLIGATOR', calcParams: [13, 8, 5],
+            figures: [
+                { key: 'jaw', title: 'Jaw: ', type: 'line' },
+                { key: 'teeth', title: 'Teeth: ', type: 'line' },
+                { key: 'lips', title: 'Lips: ', type: 'line' },
+            ],
+            calc: (data) => {
+                const med = data.map(d => (d.high + d.low) / 2);
+                const jaw = shift(smma(med, 13), 8), teeth = shift(smma(med, 8), 5), lips = shift(smma(med, 5), 3);
+                return data.map((_, i) => ({ jaw: jaw[i], teeth: teeth[i], lips: lips[i] }));
+            },
+        });
+
+        // Ichimoku Kinko Hyo
+        reg({
+            name: 'ICHIMOKU', shortName: 'ICHIMOKU', calcParams: [9, 26, 52],
+            figures: [
+                { key: 'tenkan', title: 'Tenkan: ', type: 'line' },
+                { key: 'kijun', title: 'Kijun: ', type: 'line' },
+                { key: 'spanA', title: 'Span A: ', type: 'line' },
+                { key: 'spanB', title: 'Span B: ', type: 'line' },
+                { key: 'chikou', title: 'Chikou: ', type: 'line' },
+            ],
+            calc: (data, { calcParams: [a, b, c] }) => {
+                const hh = (i, n) => { let m = -Infinity; for (let j = Math.max(0, i - n + 1); j <= i; j++) m = Math.max(m, data[j].high); return m; };
+                const ll = (i, n) => { let m = Infinity; for (let j = Math.max(0, i - n + 1); j <= i; j++) m = Math.min(m, data[j].low); return m; };
+                const out = data.map((_, i) => ({ tenkan: (hh(i, a) + ll(i, a)) / 2, kijun: (hh(i, b) + ll(i, b)) / 2 }));
+                for (let i = 0; i < data.length; i++) {
+                    const t = i + b;
+                    if (t < out.length) { out[t].spanA = (out[i].tenkan + out[i].kijun) / 2; out[t].spanB = (hh(i, c) + ll(i, c)) / 2; }
+                    const k = i - b;
+                    if (k >= 0) out[k].chikou = data[i].close;
+                }
+                return out;
+            },
+        });
+
+        // Market Facilitation Index (Bill Williams)
+        reg({
+            name: 'BWMFI', shortName: 'BW MFI',
+            figures: [{ key: 'mfi', title: 'MFI: ', type: 'line' }],
+            calc: (data) => data.map(d => ({ mfi: d.volume ? (d.high - d.low) / d.volume : 0 })),
+        });
+    }
+
+    function toggleIndicator(ind) {
+        if (!chart) return;
+        if (activeIndicators[ind.name] != null) {
+            chart.removeIndicator(activeIndicators[ind.name], ind.name);
+            delete activeIndicators[ind.name];
+        } else {
+            const paneId = ind.overlay
+                ? chart.createIndicator(ind.name, true, { id: 'candle_pane' })
+                : chart.createIndicator(ind.name, false);
+            activeIndicators[ind.name] = paneId ?? 'candle_pane';
+        }
+        renderIndicatorMenu();
+    }
+
+    function removeAllIndicators() {
+        Object.entries(activeIndicators).forEach(([name, paneId]) => chart.removeIndicator(paneId, name));
+        for (const k in activeIndicators) delete activeIndicators[k];
+        renderIndicatorMenu();
+    }
+
+    function renderIndicatorMenu() {
+        const menu = document.getElementById('ind-menu');
+        const cats = ['Trend', 'Oscillators', 'Volumes', 'Bill Williams'];
+        const activeCount = Object.keys(activeIndicators).length;
+        let html = `<div class="flex items-center justify-between px-3 py-2 border-b border-edge sticky top-0 bg-panel2">
+            <span class="text-gray-400">${INDICATORS.length} indicators</span>
+            <button data-ind-clear class="text-down hover:underline ${activeCount ? '' : 'opacity-40 pointer-events-none'}">Remove all (${activeCount})</button>
+        </div>`;
+        for (const cat of cats) {
+            html += `<div class="px-3 pt-2 pb-1 text-[10px] uppercase tracking-wide text-gray-500">${cat}</div>`;
+            for (const ind of INDICATORS.filter(i => i.cat === cat)) {
+                const on = activeIndicators[ind.name] != null;
+                html += `<button data-ind="${ind.name}" class="flex items-center justify-between w-full text-left px-3 py-1.5 hover:bg-panel ${on ? 'text-accent' : 'text-gray-300'}">
+                    <span>${ind.label}</span><span>${on ? '✓' : ''}</span>
+                </button>`;
+            }
+        }
+        menu.innerHTML = html;
+    }
+
+    document.getElementById('ind-btn').addEventListener('click', e => {
+        e.stopPropagation();
+        const menu = document.getElementById('ind-menu');
+        const show = menu.classList.contains('hidden');
+        if (show) renderIndicatorMenu();
+        menu.classList.toggle('hidden', !show);
+    });
+    document.getElementById('ind-menu').addEventListener('click', e => {
+        e.stopPropagation();
+        if (e.target.closest('[data-ind-clear]')) { removeAllIndicators(); return; }
+        const btn = e.target.closest('[data-ind]');
+        if (btn) toggleIndicator(INDICATORS.find(i => i.name === btn.dataset.ind));
+    });
+    document.addEventListener('click', () => document.getElementById('ind-menu').classList.add('hidden'));
 
     // Event wiring
     document.getElementById('watchlist').addEventListener('click', e => {
