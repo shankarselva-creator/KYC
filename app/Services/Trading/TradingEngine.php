@@ -18,8 +18,10 @@ use Throwable;
  */
 class TradingEngine
 {
-    public function __construct(private readonly TradingService $trading)
-    {
+    public function __construct(
+        private readonly TradingService $trading,
+        private readonly JournalService $journal,
+    ) {
     }
 
     /**
@@ -53,6 +55,7 @@ class TradingEngine
         foreach ($orders as $order) {
             if ($order->expires_at && $order->expires_at->lte($now)) {
                 $order->update(['status' => 'expired']);
+                $this->journal->log($order->tradingAccount, "Pending order #{$order->ticket} expired", 'warn', 'order');
                 $expired++;
                 continue;
             }
@@ -84,6 +87,7 @@ class TradingEngine
                     'position_id' => $position->id,
                     'filled_at'   => $now,
                 ]);
+                $this->journal->log($order->tradingAccount, "Pending order #{$order->ticket} filled → position #{$position->ticket}", 'success', 'order');
                 $filled++;
             } catch (RuntimeException $e) {
                 // Typically insufficient margin — cancel the order rather than retry forever.

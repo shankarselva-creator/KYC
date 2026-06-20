@@ -14,6 +14,10 @@ use RuntimeException;
 
 class TradingService
 {
+    public function __construct(private readonly JournalService $journal)
+    {
+    }
+
     /**
      * Open a market position on the given account.
      *
@@ -44,7 +48,7 @@ class TradingService
             throw new RuntimeException('Not enough free margin to open this position.');
         }
 
-        return DB::transaction(function () use ($account, $instrument, $side, $volume, $price, $options) {
+        $position = DB::transaction(function () use ($account, $instrument, $side, $volume, $price, $options) {
             return Position::create([
                 'ticket'             => $this->generateTicket(),
                 'trading_account_id' => $account->id,
@@ -61,6 +65,13 @@ class TradingService
                 'opened_at'          => Carbon::now(),
             ]);
         });
+
+        $this->journal->log($account, sprintf(
+            'Opened #%d %s %s %s at %s',
+            $position->ticket, strtoupper($side), rtrim(rtrim(number_format($volume, 2), '0'), '.'), $instrument->symbol, $price
+        ), 'success', 'trade');
+
+        return $position;
     }
 
     /**
@@ -82,7 +93,7 @@ class TradingService
         $converter = $this->converter();
         $profit = $this->realisedProfit($position, $closePrice, $converter, $account->currency);
 
-        return DB::transaction(function () use ($position, $account, $closePrice, $profit) {
+        $closed = DB::transaction(function () use ($position, $account, $closePrice, $profit) {
             $position->update([
                 'close_price' => $closePrice,
                 'profit'      => $profit,
@@ -105,6 +116,13 @@ class TradingService
 
             return $position->refresh();
         });
+
+        $this->journal->log($account, sprintf(
+            'Closed #%d %s at %s — P/L %s',
+            $closed->ticket, $instrument->symbol, $closePrice, number_format($profit, 2)
+        ), $profit >= 0 ? 'success' : 'error', 'trade');
+
+        return $closed;
     }
 
     /**
@@ -276,7 +294,7 @@ class TradingService
         $quote = $this->quoteFor($instrument);
         $this->assertPendingPrice($type, $price, $quote);
 
-        return Order::create([
+        $order = Order::create([
             'ticket'             => $this->generateTicket(),
             'trading_account_id' => $account->id,
             'instrument_id'      => $instrument->id,
@@ -289,6 +307,13 @@ class TradingService
             'expires_at'         => $options['expires_at'] ?? null,
             'placed_at'          => Carbon::now(),
         ]);
+
+        $this->journal->log($account, sprintf(
+            'Placed %s #%d %s at %s',
+            str_replace('_', ' ', $type), $order->ticket, $instrument->symbol, $price
+        ), 'info', 'order');
+
+        return $order;
     }
 
     public function cancelPendingOrder(Order $order): Order
@@ -298,6 +323,7 @@ class TradingService
         }
 
         $order->update(['status' => 'cancelled']);
+        $this->journal->log($order->tradingAccount, "Cancelled pending order #{$order->ticket}", 'warn', 'order');
 
         return $order->refresh();
     }
@@ -315,6 +341,11 @@ class TradingService
         $this->assertSlTp($position->side, $stopLoss, $takeProfit, $position->instrument->quote);
 
         $position->update(['stop_loss' => $stopLoss, 'take_profit' => $takeProfit]);
+
+        $this->journal->log($position->tradingAccount, sprintf(
+            'Modified #%d — SL %s / TP %s',
+            $position->ticket, $stopLoss ?? '—', $takeProfit ?? '—'
+        ), 'info', 'trade');
 
         return $position->refresh();
     }

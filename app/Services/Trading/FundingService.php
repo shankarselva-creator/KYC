@@ -9,8 +9,10 @@ use RuntimeException;
 
 class FundingService
 {
-    public function __construct(private readonly TradingService $trading)
-    {
+    public function __construct(
+        private readonly TradingService $trading,
+        private readonly JournalService $journal,
+    ) {
     }
 
     public function deposit(TradingAccount $account, float $amount): Transaction
@@ -39,13 +41,19 @@ class FundingService
             $newBalance = round($account->balance + $signedAmount, 2);
             $account->update(['balance' => $newBalance]);
 
-            return Transaction::create([
+            $tx = Transaction::create([
                 'trading_account_id' => $account->id,
                 'type'               => $type,
                 'amount'             => $signedAmount,
                 'balance_after'      => $newBalance,
                 'description'        => $label,
             ]);
+
+            $this->journal->log($account, sprintf(
+                '%s %s — balance %s', $label, number_format(abs($signedAmount), 2), number_format($newBalance, 2)
+            ), 'info', 'funding');
+
+            return $tx;
         });
     }
 

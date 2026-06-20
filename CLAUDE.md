@@ -69,8 +69,10 @@ app/
   price line, equidistant & price channels, Fibonacci, plus custom-registered
   rectangle, circle, triangle, arrow and text overlays; "remove all" clears them.
 - Bottom **Toolbox** with tabs: Trade (positions + pending orders), History
-  (closed trades + ledger + summary report), and Journal (client-side log of
-  startup, connectivity, and order/close/modify execution events).
+  (closed trades + ledger + summary report), and Journal. The Journal is
+  persisted server-side (`JournalService` logs open/close/pending/fill/SL-TP/
+  modify/funding events to `journal_entries`); the client merges in live
+  startup/connectivity diagnostics.
 
 ### Trading engine
 
@@ -114,6 +116,7 @@ Transaction      account, position, type, amount, balance_after   (ledger)
 | GET  | `/api/account` | Account info + live metrics |
 | POST | `/api/account/deposit` \| `/withdraw` | Adjust demo balance (withdraw capped at free margin) |
 | GET  | `/api/history` | Closed trades, ledger, and summary (Toolbox History tab) |
+| GET  | `/api/journal` | Persisted journal entries (trade/order/funding events) |
 | GET  | `/api/positions` | Open positions with live P/L |
 | GET  | `/api/orders` | Pending orders (limit/stop) |
 | POST | `/api/orders` | Market order (`type=buy\|sell`) or pending (`type=*_limit\|*_stop, price`) |

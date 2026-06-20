@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\AccountController;
 use App\Http\Controllers\Api\HistoryController;
 use App\Http\Controllers\Api\InstrumentController;
+use App\Http\Controllers\Api\JournalController;
 use App\Http\Controllers\Api\OrderController;
 use App\Http\Controllers\Api\PositionController;
 use App\Http\Controllers\Api\QuoteController;
@@ -44,6 +45,7 @@ Route::middleware('auth')->group(function () {
         Route::post('/account/withdraw', [AccountController::class, 'withdraw'])->name('account.withdraw');
         Route::get('/positions', [PositionController::class, 'index'])->name('positions');
         Route::get('/history', [HistoryController::class, 'show'])->name('history');
+        Route::get('/journal', [JournalController::class, 'index'])->name('journal');
         Route::get('/orders', [OrderController::class, 'index'])->name('orders.index');
         Route::post('/orders', [OrderController::class, 'store'])->name('orders.store');
         Route::post('/orders/{order}/cancel', [OrderController::class, 'cancel'])->name('orders.cancel');

@@ -557,8 +557,7 @@
         const msg = document.getElementById('order-msg');
         msg.className = 'text-xs min-h-[1rem] ' + (ok ? 'text-gray-300' : 'text-down');
         msg.textContent = ok ? `Cancelled pending #${json.data.ticket}` : (json.error?.message || 'Cancel failed.');
-        if (ok) journal(`Cancelled pending order #${json.data.ticket}`, 'warn');
-        loadOrders();
+        loadOrders(); if (ok) loadJournal();
     }
 
     // Market order (one-click or confirmed). `side` = buy|sell.
@@ -597,8 +596,7 @@
                 ? `${json.data.type.replace('_', ' ')} ${json.data.volume} ${json.data.symbol} @ ${json.data.price} placed (#${json.data.ticket})`
                 : `${json.data.side.toUpperCase()} ${json.data.volume} ${json.data.symbol} filled @ ${json.data.open_price} (#${json.data.ticket})`;
             msg.textContent = text;
-            journal(text, 'success');
-            await Promise.all([loadPositions(), loadOrders(), loadAccount()]);
+            await Promise.all([loadPositions(), loadOrders(), loadAccount(), loadJournal()]);
         } else {
             msg.className = 'text-xs min-h-[1rem] text-down';
             const err = json.error?.message || (json.errors ? Object.values(json.errors)[0][0] : 'Order failed.');
@@ -647,8 +645,7 @@
         const { ok, json } = await api(`/api/positions/${modifyId}/modify`, { method: 'POST', body: JSON.stringify(body) });
         if (ok) {
             document.getElementById('modify-modal').classList.add('hidden');
-            journal(`Modified #${json.data.ticket} — SL ${json.data.stop_loss ?? '—'} / TP ${json.data.take_profit ?? '—'}`, 'info');
-            await Promise.all([loadPositions(), loadAccount()]);
+            await Promise.all([loadPositions(), loadAccount(), loadJournal()]);
         } else {
             document.getElementById('modify-msg').textContent = json.error?.message || 'Modify failed.';
         }
@@ -660,12 +657,11 @@
         if (ok) {
             msg.className = 'text-xs min-h-[1rem] text-gray-300';
             msg.textContent = `Closed #${json.data.ticket} @ ${json.data.close_price} · P/L ${fmt(json.data.profit)}`;
-            journal(`Closed #${json.data.ticket} at ${json.data.close_price} — P/L ${fmt(json.data.profit)}`, json.data.profit >= 0 ? 'success' : 'error');
         } else {
             msg.className = 'text-xs min-h-[1rem] text-down';
             msg.textContent = json.error?.message || 'Close failed.';
         }
-        await Promise.all([loadPositions(), loadAccount()]);
+        await Promise.all([loadPositions(), loadAccount(), loadJournal()]);
     }
 
     // ---- Market Watch: symbol search ----
@@ -1176,7 +1172,7 @@
             b.classList.toggle('border-transparent', !on);
         });
         if (tab === 'history') loadHistory();
-        if (tab === 'journal') scrollJournal();
+        if (tab === 'journal') loadJournal();
     }
     document.querySelectorAll('.tb-tab').forEach(b => b.addEventListener('click', () => setTbTab(b.dataset.tbtab)));
 
@@ -1215,15 +1211,32 @@
         }).join('');
     }
 
-    // ---- Journal ----
+    // ---- Journal (persistent server log + live client events) ----
     const journalEl = document.getElementById('tb-journal');
-    function journal(msg, level = 'info') {
-        const t = new Date().toLocaleTimeString();
-        const color = level === 'error' ? 'text-down' : level === 'success' ? 'text-up' : level === 'warn' ? 'text-yellow-400' : 'text-gray-400';
-        const div = document.createElement('div');
-        div.innerHTML = `<span class="text-gray-600">${t}</span> <span class="${color}">${msg}</span>`;
-        journalEl.appendChild(div);
-        while (journalEl.childElementCount > 500) journalEl.removeChild(journalEl.firstChild);
+    let serverJournal = [];
+    let localJournal = []; // client-only diagnostics: startup, connectivity
+    const esc = s => String(s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+
+    // Client-side diagnostic entry (not persisted).
+    function journal(message, level = 'info') {
+        localJournal.push({ at: new Date().toISOString(), level, message });
+        if (localJournal.length > 200) localJournal.shift();
+        renderJournal();
+    }
+
+    async function loadJournal() {
+        const { ok, json } = await api('{{ route('api.journal') }}');
+        if (ok) { serverJournal = json.data; renderJournal(); }
+    }
+
+    function renderJournal() {
+        const all = [...serverJournal, ...localJournal]
+            .sort((a, b) => new Date(a.at) - new Date(b.at));
+        const colorOf = l => l === 'error' ? 'text-down' : l === 'success' ? 'text-up' : l === 'warn' ? 'text-yellow-400' : 'text-gray-400';
+        journalEl.innerHTML = all.map(e => {
+            const t = e.at ? new Date(e.at).toLocaleTimeString() : '';
+            return `<div><span class="text-gray-600">${t}</span> <span class="${colorOf(e.level)}">${esc(e.message)}</span></div>`;
+        }).join('');
         scrollJournal();
     }
     function scrollJournal() { journalEl.scrollTop = journalEl.scrollHeight; }
@@ -1248,9 +1261,8 @@
         if (ok) {
             msg.className = 'text-xs min-h-[1rem] text-up';
             msg.textContent = `${action === 'deposit' ? 'Deposited' : 'Withdrew'} ${fmt(Math.abs(json.data.amount))} — balance ${fmt(json.data.balance_after)}`;
-            journal(`${action === 'deposit' ? 'Deposit' : 'Withdrawal'} ${fmt(Math.abs(json.data.amount))} — balance ${fmt(json.data.balance_after)}`, 'info');
             document.getElementById('funds-balance').textContent = fmt(json.data.balance_after);
-            loadAccount();
+            loadAccount(); loadJournal();
         } else {
             msg.className = 'text-xs min-h-[1rem] text-down';
             msg.textContent = json.error?.message || (json.errors ? Object.values(json.errors)[0][0] : 'Failed.');
@@ -1285,8 +1297,11 @@
     journal('Terminal started — {{ config('app.name') }}');
     journal('Connected to account #{{ $account->login }} ({{ $account->currency }}, leverage 1:{{ $account->leverage }})', 'success');
     if (selected) selectSymbol(selected);
-    loadQuotes(); loadAccount(); loadPositions(); loadOrders();
-    setInterval(() => { loadQuotes(); loadPositions(); loadOrders(); }, 1500);
+    loadQuotes(); loadAccount(); loadPositions(); loadOrders(); loadJournal();
+    setInterval(() => {
+        loadQuotes(); loadPositions(); loadOrders();
+        if (!document.getElementById('tb-journal').classList.contains('hidden')) loadJournal();
+    }, 1500);
     setInterval(loadAccount, 2000);
 })();
 </script>
