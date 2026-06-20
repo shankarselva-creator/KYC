@@ -25,6 +25,9 @@
         @endif
 
         <div class="flex items-center gap-3 text-xs">
+            @if ($account)
+                <button id="funds-btn" class="text-gray-300 hover:text-white">Funds</button>
+            @endif
             <a href="{{ route('history') }}" class="text-gray-300 hover:text-white">History</a>
             <form method="POST" action="{{ route('logout') }}">@csrf
                 <button class="text-gray-300 hover:text-white">Logout</button>
@@ -334,6 +337,29 @@
                 </div>
                 <div id="modify-msg" class="text-xs min-h-[1rem] text-down"></div>
                 <button id="modify-save" class="w-full bg-accent hover:bg-blue-600 text-white font-semibold rounded-md py-2 text-sm">Save</button>
+            </div>
+        </div>
+    </div>
+
+    {{-- Deposit / Withdraw modal --}}
+    <div id="funds-modal" class="hidden fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+        <div class="bg-panel border border-edge rounded-xl w-full max-w-xs">
+            <div class="flex items-center justify-between px-4 py-3 border-b border-edge">
+                <div class="font-semibold text-white text-sm">Deposit / Withdraw</div>
+                <button id="funds-close" class="text-gray-400 hover:text-white text-lg leading-none">✕</button>
+            </div>
+            <div class="p-4 space-y-3">
+                <div class="text-xs text-gray-400">Balance: <span class="text-gray-200" id="funds-balance">—</span></div>
+                <div>
+                    <label class="block text-xs text-gray-400 mb-1">Amount ({{ $account->currency ?? 'USD' }})</label>
+                    <input id="funds-amount" type="number" min="0.01" step="0.01" placeholder="0.00"
+                        class="w-full bg-panel2 border border-edge rounded-md px-3 py-2 text-sm focus:outline-none focus:border-accent tabular-nums">
+                </div>
+                <div id="funds-msg" class="text-xs min-h-[1rem]"></div>
+                <div class="grid grid-cols-2 gap-2">
+                    <button id="funds-withdraw" class="bg-down hover:brightness-110 text-white font-semibold rounded-md py-2 text-sm">Withdraw</button>
+                    <button id="funds-deposit" class="bg-up hover:brightness-110 text-white font-semibold rounded-md py-2 text-sm">Deposit</button>
+                </div>
             </div>
         </div>
     </div>
@@ -1201,6 +1227,37 @@
         scrollJournal();
     }
     function scrollJournal() { journalEl.scrollTop = journalEl.scrollHeight; }
+
+    // ---- Deposit / Withdraw ----
+    document.getElementById('funds-btn').addEventListener('click', () => {
+        document.getElementById('funds-balance').textContent = document.querySelector('[data-acc="balance"]').textContent;
+        document.getElementById('funds-msg').textContent = '';
+        document.getElementById('funds-amount').value = '';
+        document.getElementById('funds-modal').classList.remove('hidden');
+    });
+    document.getElementById('funds-close').addEventListener('click', () =>
+        document.getElementById('funds-modal').classList.add('hidden'));
+    document.getElementById('funds-modal').addEventListener('click', e => {
+        if (e.target.id === 'funds-modal') e.target.classList.add('hidden');
+    });
+    async function fund(action) {
+        const amount = parseFloat(document.getElementById('funds-amount').value);
+        const msg = document.getElementById('funds-msg');
+        if (!amount || amount <= 0) { msg.className = 'text-xs min-h-[1rem] text-down'; msg.textContent = 'Enter a valid amount.'; return; }
+        const { ok, json } = await api(`/api/account/${action}`, { method: 'POST', body: JSON.stringify({ amount }) });
+        if (ok) {
+            msg.className = 'text-xs min-h-[1rem] text-up';
+            msg.textContent = `${action === 'deposit' ? 'Deposited' : 'Withdrew'} ${fmt(Math.abs(json.data.amount))} — balance ${fmt(json.data.balance_after)}`;
+            journal(`${action === 'deposit' ? 'Deposit' : 'Withdrawal'} ${fmt(Math.abs(json.data.amount))} — balance ${fmt(json.data.balance_after)}`, 'info');
+            document.getElementById('funds-balance').textContent = fmt(json.data.balance_after);
+            loadAccount();
+        } else {
+            msg.className = 'text-xs min-h-[1rem] text-down';
+            msg.textContent = json.error?.message || (json.errors ? Object.values(json.errors)[0][0] : 'Failed.');
+        }
+    }
+    document.getElementById('funds-deposit').addEventListener('click', () => fund('deposit'));
+    document.getElementById('funds-withdraw').addEventListener('click', () => fund('withdraw'));
 
     // Event wiring
     document.getElementById('watchlist').addEventListener('click', e => {

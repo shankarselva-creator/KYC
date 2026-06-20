@@ -112,6 +112,7 @@ Transaction      account, position, type, amount, balance_after   (ledger)
 | GET  | `/api/instruments/{symbol}/ticks` | Recent tick history (tick chart) |
 | GET  | `/api/instruments/{symbol}/candles` | OHLC candles (`timeframe=M1..MN`) for the chart |
 | GET  | `/api/account` | Account info + live metrics |
+| POST | `/api/account/deposit` \| `/withdraw` | Adjust demo balance (withdraw capped at free margin) |
 | GET  | `/api/history` | Closed trades, ledger, and summary (Toolbox History tab) |
 | GET  | `/api/positions` | Open positions with live P/L |
 | GET  | `/api/orders` | Pending orders (limit/stop) |

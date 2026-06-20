@@ -40,6 +40,8 @@ Route::middleware('auth')->group(function () {
         Route::get('/instruments/{symbol}/ticks', [InstrumentController::class, 'ticks'])->name('instruments.ticks');
         Route::get('/instruments/{symbol}/candles', [InstrumentController::class, 'candles'])->name('instruments.candles');
         Route::get('/account', [AccountController::class, 'show'])->name('account');
+        Route::post('/account/deposit', [AccountController::class, 'deposit'])->name('account.deposit');
+        Route::post('/account/withdraw', [AccountController::class, 'withdraw'])->name('account.withdraw');
         Route::get('/positions', [PositionController::class, 'index'])->name('positions');
         Route::get('/history', [HistoryController::class, 'show'])->name('history');
         Route::get('/orders', [OrderController::class, 'index'])->name('orders.index');
