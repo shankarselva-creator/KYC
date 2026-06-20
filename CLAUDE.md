@@ -68,6 +68,9 @@ app/
 - Drawing tools via a left toolbar: lines (horizontal/vertical/trend/ray/extended),
   price line, equidistant & price channels, Fibonacci, plus custom-registered
   rectangle, circle, triangle, arrow and text overlays; "remove all" clears them.
+- Bottom **Toolbox** with tabs: Trade (positions + pending orders), History
+  (closed trades + ledger + summary report), and Journal (client-side log of
+  startup, connectivity, and order/close/modify execution events).
 
 ### Trading engine
 
@@ -109,6 +112,7 @@ Transaction      account, position, type, amount, balance_after   (ledger)
 | GET  | `/api/instruments/{symbol}/ticks` | Recent tick history (tick chart) |
 | GET  | `/api/instruments/{symbol}/candles` | OHLC candles (`timeframe=M1..MN`) for the chart |
 | GET  | `/api/account` | Account info + live metrics |
+| GET  | `/api/history` | Closed trades, ledger, and summary (Toolbox History tab) |
 | GET  | `/api/positions` | Open positions with live P/L |
 | GET  | `/api/orders` | Pending orders (limit/stop) |
 | POST | `/api/orders` | Market order (`type=buy\|sell`) or pending (`type=*_limit\|*_stop, price`) |
@@ -155,8 +159,8 @@ Seeded demo login: `trader@example.com` / `password`.
 
 ## Roadmap (not yet built)
 
-WebSocket streaming prices, toolbox Journal tab, multiple accounts per user,
-deposits/withdrawals UI, swap/commission accrual.
+WebSocket streaming prices, persistent server-side journal, multiple accounts
+per user, deposits/withdrawals UI, swap/commission accrual.
 
 ---
 

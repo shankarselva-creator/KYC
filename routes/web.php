@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\AccountController;
+use App\Http\Controllers\Api\HistoryController;
 use App\Http\Controllers\Api\InstrumentController;
 use App\Http\Controllers\Api\OrderController;
 use App\Http\Controllers\Api\PositionController;
@@ -40,6 +41,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/instruments/{symbol}/candles', [InstrumentController::class, 'candles'])->name('instruments.candles');
         Route::get('/account', [AccountController::class, 'show'])->name('account');
         Route::get('/positions', [PositionController::class, 'index'])->name('positions');
+        Route::get('/history', [HistoryController::class, 'show'])->name('history');
         Route::get('/orders', [OrderController::class, 'index'])->name('orders.index');
         Route::post('/orders', [OrderController::class, 'store'])->name('orders.store');
         Route::post('/orders/{order}/cancel', [OrderController::class, 'cancel'])->name('orders.cancel');

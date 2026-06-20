@@ -196,12 +196,75 @@
         </section>
     </div>
 
-    {{-- Toolbox (bottom): Open Positions + Pending Orders --}}
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-px bg-edge shrink-0" style="height:14rem">
-        <div class="bg-panel flex flex-col overflow-hidden">
-            <div class="px-3 py-2 text-xs uppercase tracking-wide text-gray-400 border-b border-edge flex justify-between">
-                <span>Open Positions</span>
-                <span id="positions-count" class="text-gray-500"></span>
+    {{-- Toolbox: Trade / History / Journal --}}
+    <div class="flex flex-col shrink-0 border-t border-edge bg-panel" style="height:15rem">
+        <div class="flex items-center gap-1 px-2 border-b border-edge text-xs">
+            <button data-tbtab="trade" class="tb-tab px-3 py-1.5 border-b-2 border-accent text-accent font-medium">Trade</button>
+            <button data-tbtab="history" class="tb-tab px-3 py-1.5 border-b-2 border-transparent text-gray-400 hover:text-gray-200">History</button>
+            <button data-tbtab="journal" class="tb-tab px-3 py-1.5 border-b-2 border-transparent text-gray-400 hover:text-gray-200">Journal</button>
+            <div class="ml-auto text-[11px] text-gray-500 tabular-nums" id="tb-trade-summary"></div>
+        </div>
+
+        {{-- Trade --}}
+        <div id="tb-trade" class="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-px bg-edge overflow-hidden">
+            <div class="bg-panel flex flex-col overflow-hidden">
+                <div class="px-3 py-1.5 text-xs uppercase tracking-wide text-gray-400 border-b border-edge flex justify-between">
+                    <span>Open Positions</span>
+                    <span id="positions-count" class="text-gray-500"></span>
+                </div>
+                <div class="overflow-auto flex-1">
+                    <table class="w-full text-xs">
+                        <thead class="text-gray-500 sticky top-0 bg-panel">
+                            <tr>
+                                <th class="text-left px-3 py-1.5 font-medium">Ticket</th>
+                                <th class="text-left px-2 py-1.5 font-medium">Symbol</th>
+                                <th class="text-left px-2 py-1.5 font-medium">Type</th>
+                                <th class="text-right px-2 py-1.5 font-medium">Volume</th>
+                                <th class="text-right px-2 py-1.5 font-medium">Open</th>
+                                <th class="text-right px-2 py-1.5 font-medium">Current</th>
+                                <th class="text-right px-2 py-1.5 font-medium">S/L</th>
+                                <th class="text-right px-2 py-1.5 font-medium">T/P</th>
+                                <th class="text-right px-2 py-1.5 font-medium">Profit</th>
+                                <th class="px-3 py-1.5"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="positions">
+                            <tr><td colspan="10" class="px-3 py-4 text-center text-gray-500">No open positions</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="bg-panel flex flex-col overflow-hidden">
+                <div class="px-3 py-1.5 text-xs uppercase tracking-wide text-gray-400 border-b border-edge flex justify-between">
+                    <span>Pending Orders</span>
+                    <span id="orders-count" class="text-gray-500"></span>
+                </div>
+                <div class="overflow-auto flex-1">
+                    <table class="w-full text-xs">
+                        <thead class="text-gray-500 sticky top-0 bg-panel">
+                            <tr>
+                                <th class="text-left px-3 py-1.5 font-medium">Ticket</th>
+                                <th class="text-left px-2 py-1.5 font-medium">Symbol</th>
+                                <th class="text-left px-2 py-1.5 font-medium">Type</th>
+                                <th class="text-right px-2 py-1.5 font-medium">Volume</th>
+                                <th class="text-right px-2 py-1.5 font-medium">Price</th>
+                                <th class="text-right px-2 py-1.5 font-medium">Market</th>
+                                <th class="px-3 py-1.5"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="orders">
+                            <tr><td colspan="7" class="px-3 py-3 text-center text-gray-500">No pending orders</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        {{-- History --}}
+        <div id="tb-history" class="hidden flex-1 flex-col overflow-hidden">
+            <div id="history-summary" class="flex flex-wrap gap-x-5 gap-y-1 px-3 py-1.5 border-b border-edge text-[11px] text-gray-400">
+                <span>Loading…</span>
             </div>
             <div class="overflow-auto flex-1">
                 <table class="w-full text-xs">
@@ -212,44 +275,20 @@
                             <th class="text-left px-2 py-1.5 font-medium">Type</th>
                             <th class="text-right px-2 py-1.5 font-medium">Volume</th>
                             <th class="text-right px-2 py-1.5 font-medium">Open</th>
-                            <th class="text-right px-2 py-1.5 font-medium">Current</th>
-                            <th class="text-right px-2 py-1.5 font-medium">S/L</th>
-                            <th class="text-right px-2 py-1.5 font-medium">T/P</th>
-                            <th class="text-right px-2 py-1.5 font-medium">Profit</th>
-                            <th class="px-3 py-1.5"></th>
+                            <th class="text-right px-2 py-1.5 font-medium">Close</th>
+                            <th class="text-left px-2 py-1.5 font-medium">Closed</th>
+                            <th class="text-right px-3 py-1.5 font-medium">Profit</th>
                         </tr>
                     </thead>
-                    <tbody id="positions">
-                        <tr><td colspan="10" class="px-3 py-4 text-center text-gray-500">No open positions</td></tr>
+                    <tbody id="history-rows">
+                        <tr><td colspan="8" class="px-3 py-4 text-center text-gray-500">No history</td></tr>
                     </tbody>
                 </table>
             </div>
         </div>
 
-        <div class="bg-panel flex flex-col overflow-hidden">
-            <div class="px-3 py-2 text-xs uppercase tracking-wide text-gray-400 border-b border-edge flex justify-between">
-                <span>Pending Orders</span>
-                <span id="orders-count" class="text-gray-500"></span>
-            </div>
-            <div class="overflow-auto flex-1">
-                <table class="w-full text-xs">
-                    <thead class="text-gray-500 sticky top-0 bg-panel">
-                        <tr>
-                            <th class="text-left px-3 py-1.5 font-medium">Ticket</th>
-                            <th class="text-left px-2 py-1.5 font-medium">Symbol</th>
-                            <th class="text-left px-2 py-1.5 font-medium">Type</th>
-                            <th class="text-right px-2 py-1.5 font-medium">Volume</th>
-                            <th class="text-right px-2 py-1.5 font-medium">Price</th>
-                            <th class="text-right px-2 py-1.5 font-medium">Market</th>
-                            <th class="px-3 py-1.5"></th>
-                        </tr>
-                    </thead>
-                    <tbody id="orders">
-                        <tr><td colspan="7" class="px-3 py-3 text-center text-gray-500">No pending orders</td></tr>
-                    </tbody>
-                </table>
-            </div>
-        </div>
+        {{-- Journal --}}
+        <div id="tb-journal" class="hidden flex-1 overflow-auto p-2 text-[11px] font-mono leading-relaxed text-gray-300"></div>
     </div>
     </div>
 
@@ -318,14 +357,21 @@
     let chartType = 'candle_solid';
     let chart = null;
     let chartDigits = 5;
+    let online = true;
 
     async function api(url, opts = {}) {
-        const res = await fetch(url, {
-            headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': csrf, ...(opts.body ? { 'Content-Type': 'application/json' } : {}) },
-            ...opts,
-        });
-        const json = await res.json().catch(() => ({}));
-        return { ok: res.ok, json };
+        try {
+            const res = await fetch(url, {
+                headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': csrf, ...(opts.body ? { 'Content-Type': 'application/json' } : {}) },
+                ...opts,
+            });
+            if (!online) { online = true; journal('Connection restored', 'success'); }
+            const json = await res.json().catch(() => ({}));
+            return { ok: res.ok, json };
+        } catch (e) {
+            if (online) { online = false; journal('Connection lost — retrying', 'error'); }
+            return { ok: false, json: {} };
+        }
     }
 
     function selectSymbol(sym) {
@@ -413,6 +459,8 @@
         set('used_margin', fmt(m.used_margin));
         set('free_margin', fmt(m.free_margin));
         set('margin_level', m.margin_level === null ? '—' : fmt(m.margin_level) + '%');
+        const tb = document.getElementById('tb-trade-summary');
+        if (tb) tb.textContent = `Balance ${fmt(m.balance)} · Equity ${fmt(m.equity)} · Free ${fmt(m.free_margin)}`;
     }
 
     async function loadPositions() {
@@ -483,6 +531,7 @@
         const msg = document.getElementById('order-msg');
         msg.className = 'text-xs min-h-[1rem] ' + (ok ? 'text-gray-300' : 'text-down');
         msg.textContent = ok ? `Cancelled pending #${json.data.ticket}` : (json.error?.message || 'Cancel failed.');
+        if (ok) journal(`Cancelled pending order #${json.data.ticket}`, 'warn');
         loadOrders();
     }
 
@@ -518,13 +567,17 @@
         const { ok, json } = await api('{{ route('api.orders.store') }}', { method: 'POST', body: JSON.stringify(body) });
         if (ok) {
             msg.className = 'text-xs min-h-[1rem] text-up';
-            msg.textContent = json.data.kind === 'pending'
+            const text = json.data.kind === 'pending'
                 ? `${json.data.type.replace('_', ' ')} ${json.data.volume} ${json.data.symbol} @ ${json.data.price} placed (#${json.data.ticket})`
                 : `${json.data.side.toUpperCase()} ${json.data.volume} ${json.data.symbol} filled @ ${json.data.open_price} (#${json.data.ticket})`;
+            msg.textContent = text;
+            journal(text, 'success');
             await Promise.all([loadPositions(), loadOrders(), loadAccount()]);
         } else {
             msg.className = 'text-xs min-h-[1rem] text-down';
-            msg.textContent = json.error?.message || (json.errors ? Object.values(json.errors)[0][0] : 'Order failed.');
+            const err = json.error?.message || (json.errors ? Object.values(json.errors)[0][0] : 'Order failed.');
+            msg.textContent = err;
+            journal('Order rejected: ' + err, 'error');
         }
     }
 
@@ -568,6 +621,7 @@
         const { ok, json } = await api(`/api/positions/${modifyId}/modify`, { method: 'POST', body: JSON.stringify(body) });
         if (ok) {
             document.getElementById('modify-modal').classList.add('hidden');
+            journal(`Modified #${json.data.ticket} — SL ${json.data.stop_loss ?? '—'} / TP ${json.data.take_profit ?? '—'}`, 'info');
             await Promise.all([loadPositions(), loadAccount()]);
         } else {
             document.getElementById('modify-msg').textContent = json.error?.message || 'Modify failed.';
@@ -580,6 +634,7 @@
         if (ok) {
             msg.className = 'text-xs min-h-[1rem] text-gray-300';
             msg.textContent = `Closed #${json.data.ticket} @ ${json.data.close_price} · P/L ${fmt(json.data.profit)}`;
+            journal(`Closed #${json.data.ticket} at ${json.data.close_price} — P/L ${fmt(json.data.profit)}`, json.data.profit >= 0 ? 'success' : 'error');
         } else {
             msg.className = 'text-xs min-h-[1rem] text-down';
             msg.textContent = json.error?.message || 'Close failed.';
@@ -1079,6 +1134,74 @@
         if (b) selectTool(b.dataset.tool);
     });
 
+    // ---- Toolbox tabs (Trade / History / Journal) ----
+    function setTbTab(tab) {
+        ['trade', 'history', 'journal'].forEach(t => {
+            const el = document.getElementById('tb-' + t);
+            const on = t === tab;
+            el.classList.toggle('hidden', !on);
+            if (t === 'history') el.classList.toggle('flex', on);
+        });
+        document.querySelectorAll('.tb-tab').forEach(b => {
+            const on = b.dataset.tbtab === tab;
+            b.classList.toggle('text-accent', on);
+            b.classList.toggle('border-accent', on);
+            b.classList.toggle('text-gray-400', !on);
+            b.classList.toggle('border-transparent', !on);
+        });
+        if (tab === 'history') loadHistory();
+        if (tab === 'journal') scrollJournal();
+    }
+    document.querySelectorAll('.tb-tab').forEach(b => b.addEventListener('click', () => setTbTab(b.dataset.tbtab)));
+
+    async function loadHistory() {
+        const { ok, json } = await api('/api/history');
+        if (!ok) return;
+        const s = json.data.summary;
+        const pnlC = s.closed_pnl > 0 ? 'text-up' : s.closed_pnl < 0 ? 'text-down' : 'text-gray-300';
+        document.getElementById('history-summary').innerHTML =
+            `<span>Closed P/L: <b class="${pnlC}">${fmt(s.closed_pnl)} ${s.currency}</b></span>` +
+            `<span>Trades: <b class="text-gray-200">${s.trades}</b></span>` +
+            `<span>Win rate: <b class="text-gray-200">${s.win_rate == null ? '—' : s.win_rate + '%'}</b> <span class="text-gray-600">(${s.wins}W / ${s.losses}L)</span></span>` +
+            `<span>Deposits: <b class="text-gray-200">${fmt(s.deposits)}</b></span>` +
+            (s.withdrawals ? `<span>Withdrawals: <b class="text-gray-200">${fmt(s.withdrawals)}</b></span>` : '');
+        const tbody = document.getElementById('history-rows');
+        const rows = json.data.positions;
+        if (!rows.length) {
+            tbody.innerHTML = '<tr><td colspan="8" class="px-3 py-4 text-center text-gray-500">No closed trades yet</td></tr>';
+            return;
+        }
+        tbody.innerHTML = rows.map(p => {
+            const d = digitsBySymbol[p.symbol] ?? 5;
+            const pc = p.profit > 0 ? 'text-up' : p.profit < 0 ? 'text-down' : 'text-gray-300';
+            const sc = p.side === 'buy' ? 'text-up' : 'text-down';
+            const closed = p.closed_at ? new Date(p.closed_at).toLocaleString() : '—';
+            return `<tr class="border-t border-edge/50">
+                <td class="px-3 py-1.5 tabular-nums text-gray-400">${p.ticket}</td>
+                <td class="px-2 py-1.5 font-medium">${p.symbol}</td>
+                <td class="px-2 py-1.5 uppercase ${sc}">${p.side}</td>
+                <td class="px-2 py-1.5 text-right tabular-nums">${fmt(p.volume)}</td>
+                <td class="px-2 py-1.5 text-right tabular-nums">${fmt(p.open_price, d)}</td>
+                <td class="px-2 py-1.5 text-right tabular-nums">${fmt(p.close_price, d)}</td>
+                <td class="px-2 py-1.5 text-gray-400 whitespace-nowrap">${closed}</td>
+                <td class="px-3 py-1.5 text-right tabular-nums ${pc}">${fmt(p.profit)}</td>
+            </tr>`;
+        }).join('');
+    }
+
+    // ---- Journal ----
+    const journalEl = document.getElementById('tb-journal');
+    function journal(msg, level = 'info') {
+        const t = new Date().toLocaleTimeString();
+        const color = level === 'error' ? 'text-down' : level === 'success' ? 'text-up' : level === 'warn' ? 'text-yellow-400' : 'text-gray-400';
+        const div = document.createElement('div');
+        div.innerHTML = `<span class="text-gray-600">${t}</span> <span class="${color}">${msg}</span>`;
+        journalEl.appendChild(div);
+        while (journalEl.childElementCount > 500) journalEl.removeChild(journalEl.firstChild);
+        scrollJournal();
+    }
+    function scrollJournal() { journalEl.scrollTop = journalEl.scrollHeight; }
+
     // Event wiring
     document.getElementById('watchlist').addEventListener('click', e => {
         const row = e.target.closest('tr[data-symbol]');
@@ -1102,6 +1225,8 @@
     // Initial load + polling
     initChart();
     renderDrawToolbar();
+    journal('Terminal started — {{ config('app.name') }}');
+    journal('Connected to account #{{ $account->login }} ({{ $account->currency }}, leverage 1:{{ $account->leverage }})', 'success');
     if (selected) selectSymbol(selected);
     loadQuotes(); loadAccount(); loadPositions(); loadOrders();
     setInterval(() => { loadQuotes(); loadPositions(); loadOrders(); }, 1500);
