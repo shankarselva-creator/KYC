@@ -437,7 +437,11 @@
                         </div>
                     </div>
                     <div id="experts-msg" class="text-xs min-h-[1rem]"></div>
-                    <button id="ea-attach" class="w-full bg-accent hover:bg-blue-600 text-white font-semibold rounded-md py-2 text-sm">Attach &amp; run</button>
+                    <div id="ea-backtest-result" class="hidden text-xs bg-panel border border-edge rounded-md p-2"></div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button id="ea-backtest" class="bg-panel border border-edge hover:border-accent text-gray-200 font-semibold rounded-md py-2 text-sm">Backtest</button>
+                        <button id="ea-attach" class="bg-accent hover:bg-blue-600 text-white font-semibold rounded-md py-2 text-sm">Attach &amp; run</button>
+                    </div>
                     <p class="text-[11px] text-gray-500">Experts run on the server with the price feed (<code>quotes:poll</code>); actions appear in the Journal.</p>
                 </div>
             </div>
@@ -1442,10 +1446,10 @@
             </tr>`;
         }).join('');
     }
-    async function attachExpert() {
+    function eaFormBody() {
         const params = {};
         document.querySelectorAll('#ea-params [data-eap]').forEach(i => params[i.dataset.eap] = parseFloat(i.value));
-        const body = {
+        return {
             strategy: document.getElementById('ea-strategy').value,
             symbol: document.getElementById('ea-symbol').value.trim().toUpperCase(),
             timeframe: document.getElementById('ea-timeframe').value,
@@ -1455,6 +1459,38 @@
             take_profit_pips: parseInt(document.getElementById('ea-tp').value) || null,
             max_positions: parseInt(document.getElementById('ea-max').value) || 1,
         };
+    }
+
+    async function backtestExpert() {
+        const msg = document.getElementById('experts-msg');
+        const out = document.getElementById('ea-backtest-result');
+        msg.className = 'text-xs min-h-[1rem] text-gray-400';
+        msg.textContent = 'Running backtest…';
+        out.classList.add('hidden');
+        const { ok, json } = await api('{{ route('api.experts.backtest') }}', { method: 'POST', body: JSON.stringify(eaFormBody()) });
+        if (!ok) {
+            msg.className = 'text-xs min-h-[1rem] text-down';
+            msg.textContent = json.error?.message || (json.errors ? Object.values(json.errors)[0][0] : 'Backtest failed.');
+            return;
+        }
+        msg.textContent = '';
+        const r = json.data;
+        const pc = r.net_profit > 0 ? 'text-up' : r.net_profit < 0 ? 'text-down' : 'text-gray-300';
+        out.innerHTML =
+            `<div class="text-gray-400 mb-1">Backtest · ${r.bars} bars · ${r.timeframe}</div>
+             <div class="grid grid-cols-3 gap-y-1">
+                <span>Net P/L: <b class="${pc}">${fmt(r.net_profit)} ${r.currency}</b></span>
+                <span>Trades: <b class="text-gray-200">${r.trades}</b></span>
+                <span>Win rate: <b class="text-gray-200">${r.win_rate == null ? '—' : r.win_rate + '%'}</b></span>
+                <span>Profit factor: <b class="text-gray-200">${r.profit_factor ?? '—'}</b></span>
+                <span>Max DD: <b class="text-down">${fmt(r.max_drawdown)}</b></span>
+                <span>W/L: <b class="text-gray-200">${r.wins}/${r.losses}</b></span>
+             </div>`;
+        out.classList.remove('hidden');
+    }
+
+    async function attachExpert() {
+        const body = eaFormBody();
         const msg = document.getElementById('experts-msg');
         const { ok, json } = await api('{{ route('api.experts.store') }}', { method: 'POST', body: JSON.stringify(body) });
         if (ok) {
@@ -1472,6 +1508,7 @@
     document.getElementById('experts-modal').addEventListener('click', e => { if (e.target.id === 'experts-modal') e.target.classList.add('hidden'); });
     document.getElementById('ea-strategy').addEventListener('change', renderEaParams);
     document.getElementById('ea-attach').addEventListener('click', attachExpert);
+    document.getElementById('ea-backtest').addEventListener('click', backtestExpert);
     document.getElementById('experts-list').addEventListener('click', async e => {
         const t = e.target.closest('[data-ea-toggle]'); const r = e.target.closest('[data-ea-remove]');
         if (t) { await api(`/api/experts/${t.dataset.eaToggle}/toggle`, { method: 'POST' }); loadExperts(); }

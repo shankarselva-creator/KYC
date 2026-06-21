@@ -139,6 +139,7 @@ ExpertAdvisor    account, instrument, strategy, timeframe, volume, params, magic
 | GET  | `/api/history` | Closed trades, ledger, and summary (Toolbox History tab) |
 | GET  | `/api/journal` | Persisted journal entries (trade/order/funding events) |
 | GET  | `/api/experts/strategies` | Available EA strategies + parameter schemas |
+| POST | `/api/experts/backtest` | Replay a strategy over recent candles; returns a report |
 | GET  | `/api/experts` | Attached Expert Advisors |
 | POST | `/api/experts` | Attach an EA (`strategy, symbol, timeframe, volume, params`) |
 | POST | `/api/experts/{expert}/toggle` | Pause / resume an EA |

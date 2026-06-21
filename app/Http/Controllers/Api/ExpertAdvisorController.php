@@ -7,6 +7,7 @@ use App\Http\Controllers\Concerns\ResolvesTradingAccount;
 use App\Http\Controllers\Controller;
 use App\Models\ExpertAdvisor;
 use App\Models\Instrument;
+use App\Services\Experts\Backtester;
 use App\Services\Experts\StrategyRegistry;
 use App\Services\MarketData\CandleService;
 use Illuminate\Http\JsonResponse;
@@ -87,6 +88,52 @@ class ExpertAdvisorController extends Controller
         ]);
 
         return $this->ok($this->present($ea->load('instrument:id,symbol')));
+    }
+
+    /** Replay a strategy over recent candles and return a performance report. */
+    public function backtest(Request $request, Backtester $backtester, CandleService $candles): JsonResponse
+    {
+        $this->activeAccount($request);
+
+        $validated = $request->validate([
+            'strategy'  => ['required', 'string'],
+            'symbol'    => ['required', 'string', 'exists:instruments,symbol'],
+            'timeframe' => ['required', 'in:'.implode(',', array_keys(CandleService::TIMEFRAMES))],
+            'volume'    => ['required', 'numeric', 'min:0.01', 'max:100'],
+            'params'    => ['nullable', 'array'],
+            'stop_loss_pips'   => ['nullable', 'integer', 'min:0', 'max:100000'],
+            'take_profit_pips' => ['nullable', 'integer', 'min:0', 'max:100000'],
+            'max_positions'    => ['nullable', 'integer', 'min:1', 'max:50'],
+        ]);
+
+        $strategy = $this->registry->get($validated['strategy']);
+        if (! $strategy) {
+            return $this->fail('UNKNOWN_STRATEGY', 'That strategy does not exist.', 422);
+        }
+
+        $instrument = Instrument::where('symbol', $validated['symbol'])->firstOrFail();
+        $bars = $candles->recent($instrument, $validated['timeframe'], 500);
+        if ($bars->count() < 50) {
+            return $this->fail('NO_HISTORY', 'Not enough candle history to backtest this symbol/timeframe.', 422);
+        }
+
+        $params = $this->registry->defaults($validated['strategy']);
+        foreach ($strategy->params() as $p) {
+            if (isset($validated['params'][$p['key']]) && is_numeric($validated['params'][$p['key']])) {
+                $params[$p['key']] = 0 + $validated['params'][$p['key']];
+            }
+        }
+
+        $report = $backtester->run(
+            $strategy, $instrument, $params, (float) $validated['volume'],
+            $validated['stop_loss_pips'] ?? null, $validated['take_profit_pips'] ?? null,
+            $validated['max_positions'] ?? 1, $bars,
+        );
+        $report['bars'] = $bars->count();
+        $report['strategy'] = $strategy->key();
+        $report['timeframe'] = $validated['timeframe'];
+
+        return $this->ok($report);
     }
 
     public function toggle(Request $request, ExpertAdvisor $expert): JsonResponse

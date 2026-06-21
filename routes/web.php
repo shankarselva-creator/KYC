@@ -50,6 +50,7 @@ Route::middleware('auth')->group(function () {
 
         // Expert Advisors (automated strategies)
         Route::get('/experts/strategies', [ExpertAdvisorController::class, 'strategies'])->name('experts.strategies');
+        Route::post('/experts/backtest', [ExpertAdvisorController::class, 'backtest'])->name('experts.backtest');
         Route::get('/experts', [ExpertAdvisorController::class, 'index'])->name('experts.index');
         Route::post('/experts', [ExpertAdvisorController::class, 'store'])->name('experts.store');
         Route::post('/experts/{expert}/toggle', [ExpertAdvisorController::class, 'toggle'])->name('experts.toggle');
