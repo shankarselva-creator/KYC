@@ -10,7 +10,7 @@ class ExpertAdvisor extends Model
 {
     protected $fillable = [
         'trading_account_id', 'instrument_id', 'name', 'strategy', 'timeframe',
-        'volume', 'params', 'state', 'stop_loss_pips', 'take_profit_pips', 'max_positions',
+        'volume', 'params', 'state', 'stop_loss_pips', 'take_profit_pips', 'trailing_stop_pips', 'max_positions',
         'magic', 'is_active', 'last_run_at',
     ];
 
@@ -22,6 +22,7 @@ class ExpertAdvisor extends Model
             'state'            => 'array',
             'stop_loss_pips'   => 'integer',
             'take_profit_pips' => 'integer',
+            'trailing_stop_pips' => 'integer',
             'max_positions'    => 'integer',
             'magic'            => 'integer',
             'is_active'        => 'boolean',

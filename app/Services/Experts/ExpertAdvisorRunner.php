@@ -51,6 +51,10 @@ class ExpertAdvisorRunner
                 continue;
             }
 
+            if ($ea->trailing_stop_pips) {
+                $this->applyTrailingStop($ea);
+            }
+
             $open = Position::where('expert_advisor_id', $ea->id)->where('status', 'open')->get(['id', 'side']);
             $ctx = new StrategyContext(
                 $ea,
@@ -117,6 +121,35 @@ class ExpertAdvisorRunner
             Log::error("EA #{$ea->id} open failed: {$e->getMessage()}");
 
             return false;
+        }
+    }
+
+    /**
+     * Ratchet the Stop Loss of this EA's open positions in the favourable
+     * direction by the configured trailing distance (never loosens it).
+     */
+    private function applyTrailingStop(ExpertAdvisor $ea): void
+    {
+        $quote = $ea->instrument->quote;
+        if (! $quote) {
+            return;
+        }
+        $pip = $ea->instrument->pip_size;
+        $digits = $ea->instrument->digits;
+        $trail = $ea->trailing_stop_pips;
+
+        foreach (Position::where('expert_advisor_id', $ea->id)->where('status', 'open')->get() as $p) {
+            if ($p->side === 'buy') {
+                $newSl = round($quote->bid - $trail * $pip, $digits);
+                if ($newSl < $quote->bid && ($p->stop_loss === null || $newSl > $p->stop_loss)) {
+                    $p->update(['stop_loss' => $newSl]);
+                }
+            } else {
+                $newSl = round($quote->ask + $trail * $pip, $digits);
+                if ($newSl > $quote->ask && ($p->stop_loss === null || $newSl < $p->stop_loss)) {
+                    $p->update(['stop_loss' => $newSl]);
+                }
+            }
         }
     }
 

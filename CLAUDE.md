@@ -121,7 +121,8 @@ Order            ticket, account, instrument, type(buy/sell _limit/_stop), volum
                  sl, tp, status(pending|filled|cancelled|expired), position_id  (pending orders)
 Transaction      account, position, type, amount, balance_after   (ledger)
 ExpertAdvisor    account, instrument, strategy, timeframe, volume, params, magic,
-                 stop_loss_pips, take_profit_pips, max_positions, is_active, state
+                 stop_loss_pips, take_profit_pips, trailing_stop_pips, max_positions,
+                 is_active, state
 ```
 
 ---

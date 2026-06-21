@@ -149,6 +149,35 @@ class ExpertAdvisorTest extends TestCase
         $this->assertEqualsWithDelta(1.20010 + 0.0200, $pos->take_profit, 0.00001);
     }
 
+    public function test_trailing_stop_ratchets_stop_loss_up_for_a_buy(): void
+    {
+        $ins = $this->instrument(1.20000);
+        $user = User::create(['name' => 'E', 'email' => 'e7@example.com', 'password' => bcrypt('x')]);
+        $account = app(AccountProvisioner::class)->createDemoAccount($user);
+        $this->seedCandles($ins, array_fill(0, 60, 1.10000));
+
+        $ea = ExpertAdvisor::create([
+            'trading_account_id' => $account->id, 'instrument_id' => $ins->id,
+            'name' => 'Trail', 'strategy' => 'ma_cross', 'timeframe' => 'M5',
+            'volume' => 0.10, 'params' => ['fast' => 10, 'slow' => 30],
+            'trailing_stop_pips' => 50, 'magic' => 5550, 'is_active' => true,
+        ]);
+        $pos = Position::create([
+            'ticket' => 70001, 'trading_account_id' => $account->id, 'instrument_id' => $ins->id,
+            'expert_advisor_id' => $ea->id, 'magic' => 5550, 'side' => 'buy', 'volume' => 0.10,
+            'open_price' => 1.19000, 'status' => 'open', 'opened_at' => now(),
+        ]);
+
+        // bid = 1.20000 → trailing SL should sit 50 pips below = 1.19500.
+        app(ExpertAdvisorRunner::class)->run();
+        $this->assertEqualsWithDelta(1.19500, $pos->fresh()->stop_loss, 0.00001);
+
+        // Price falls; trailing must NOT loosen the stop.
+        $ins->quote()->update(['bid' => 1.19600, 'ask' => 1.19610]);
+        app(ExpertAdvisorRunner::class)->run();
+        $this->assertEqualsWithDelta(1.19500, $pos->fresh()->stop_loss, 0.00001);
+    }
+
     public function test_macd_cross_signals_buy(): void
     {
         // Flat baseline (macd ≈ signal ≈ 0) then a sharp jump on the last bar

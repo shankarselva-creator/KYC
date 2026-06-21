@@ -132,6 +132,7 @@ class Backtester
         $equity = 0.0;
         $peak = 0.0;
         $maxDd = 0.0;
+        $curve = [0.0]; // cumulative P/L after each trade, starting at 0
 
         foreach ($trades as $t) {
             if ($t['profit'] > 0) {
@@ -141,6 +142,7 @@ class Backtester
                 $grossLoss += abs($t['profit']);
             }
             $equity += $t['profit'];
+            $curve[] = round($equity, 2);
             $peak = max($peak, $equity);
             $maxDd = max($maxDd, $peak - $equity);
         }
@@ -157,6 +159,7 @@ class Backtester
             'gross_loss'    => round($grossLoss, 2),
             'profit_factor' => $grossLoss > 0 ? round($grossProfit / $grossLoss, 2) : null,
             'max_drawdown'  => round($maxDd, 2),
+            'equity'        => $curve,
         ];
     }
 }

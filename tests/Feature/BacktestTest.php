@@ -66,6 +66,9 @@ class BacktestTest extends TestCase
         $this->assertGreaterThan(0, $report['net_profit']); // long in an uptrend = profit
         $this->assertArrayHasKey('profit_factor', $report);
         $this->assertArrayHasKey('max_drawdown', $report);
+        $this->assertIsArray($report['equity']);
+        $this->assertSame(0.0, $report['equity'][0]); // curve starts at zero
+        $this->assertSame($report['trades'] + 1, count($report['equity']));
     }
 
     public function test_backtest_endpoint(): void

@@ -422,7 +422,7 @@
                         </div>
                     </div>
                     <div id="ea-params" class="grid grid-cols-3 gap-3"></div>
-                    <div class="grid grid-cols-3 gap-3">
+                    <div class="grid grid-cols-2 gap-3">
                         <div>
                             <label class="block text-xs text-gray-400 mb-1">Stop Loss (pips)</label>
                             <input id="ea-sl" type="number" min="0" step="1" placeholder="off" class="w-full bg-panel border border-edge rounded-md px-2 py-1.5 text-sm focus:outline-none focus:border-accent tabular-nums">
@@ -430,6 +430,10 @@
                         <div>
                             <label class="block text-xs text-gray-400 mb-1">Take Profit (pips)</label>
                             <input id="ea-tp" type="number" min="0" step="1" placeholder="off" class="w-full bg-panel border border-edge rounded-md px-2 py-1.5 text-sm focus:outline-none focus:border-accent tabular-nums">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-400 mb-1">Trailing stop (pips)</label>
+                            <input id="ea-trail" type="number" min="0" step="1" placeholder="off" class="w-full bg-panel border border-edge rounded-md px-2 py-1.5 text-sm focus:outline-none focus:border-accent tabular-nums">
                         </div>
                         <div>
                             <label class="block text-xs text-gray-400 mb-1">Max positions</label>
@@ -1457,6 +1461,7 @@
             params,
             stop_loss_pips: parseInt(document.getElementById('ea-sl').value) || null,
             take_profit_pips: parseInt(document.getElementById('ea-tp').value) || null,
+            trailing_stop_pips: parseInt(document.getElementById('ea-trail').value) || null,
             max_positions: parseInt(document.getElementById('ea-max').value) || 1,
         };
     }
@@ -1485,8 +1490,33 @@
                 <span>Profit factor: <b class="text-gray-200">${r.profit_factor ?? '—'}</b></span>
                 <span>Max DD: <b class="text-down">${fmt(r.max_drawdown)}</b></span>
                 <span>W/L: <b class="text-gray-200">${r.wins}/${r.losses}</b></span>
-             </div>`;
+             </div>
+             <canvas id="ea-equity" class="w-full mt-2 bg-panel2 border border-edge rounded" height="70"></canvas>`;
         out.classList.remove('hidden');
+        drawEquity(r.equity || []);
+    }
+
+    function drawEquity(series) {
+        const canvas = document.getElementById('ea-equity');
+        if (!canvas || series.length < 2) return;
+        const dpr = window.devicePixelRatio || 1;
+        const w = canvas.clientWidth, h = canvas.clientHeight;
+        canvas.width = w * dpr; canvas.height = h * dpr;
+        const ctx = canvas.getContext('2d');
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.clearRect(0, 0, w, h);
+        const min = Math.min(...series), max = Math.max(...series), range = (max - min) || 1, pad = 4;
+        const x = i => pad + (i / (series.length - 1)) * (w - 2 * pad);
+        const y = v => h - pad - ((v - min) / range) * (h - 2 * pad);
+        // zero baseline
+        if (min < 0 && max > 0) {
+            ctx.beginPath(); ctx.moveTo(pad, y(0)); ctx.lineTo(w - pad, y(0));
+            ctx.strokeStyle = '#2a323d'; ctx.lineWidth = 1; ctx.stroke();
+        }
+        ctx.beginPath();
+        series.forEach((v, i) => i === 0 ? ctx.moveTo(x(i), y(v)) : ctx.lineTo(x(i), y(v)));
+        ctx.strokeStyle = series[series.length - 1] >= 0 ? '#26a69a' : '#ef5350';
+        ctx.lineWidth = 1.5; ctx.stroke();
     }
 
     async function attachExpert() {
