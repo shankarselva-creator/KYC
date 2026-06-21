@@ -43,12 +43,30 @@ using ResultFn   = std::function<void(const RecoveredFile&)>;
 // --- partition.cpp ---
 std::vector<PartitionInfo> ScanPartitions(Disk& disk);
 
+// Detected filesystem at a given partition/volume start.
+enum class FsType { Unknown, NTFS, FAT, ExFAT };
+FsType DetectFilesystem(Disk& disk, uint64_t partitionStart);
+
+// Auto-detect the filesystem and run the matching deleted-file scanner.
+void ScanDeletedAuto(Disk& disk, uint64_t partitionStart,
+                     const std::wstring& sourceLabel,
+                     const ProgressFn& progress, const ResultFn& onResult);
+
 // --- ntfs.cpp ---
 // Scan an NTFS filesystem starting at `partitionStart` (bytes, absolute on disk)
 // for deleted files. Pass 0 for a volume opened directly (\\.\C:).
 void ScanNtfsDeleted(Disk& disk, uint64_t partitionStart,
                      const std::wstring& sourceLabel,
                      const ProgressFn& progress, const ResultFn& onResult);
+
+// --- fat.cpp ---
+// Deleted-file recovery for FAT12/16/32 and exFAT volumes.
+void ScanFatDeleted(Disk& disk, uint64_t partitionStart,
+                    const std::wstring& sourceLabel,
+                    const ProgressFn& progress, const ResultFn& onResult);
+void ScanExfatDeleted(Disk& disk, uint64_t partitionStart,
+                      const std::wstring& sourceLabel,
+                      const ProgressFn& progress, const ResultFn& onResult);
 
 // --- carver.cpp ---
 void ScanCarve(Disk& disk, uint64_t startOffset, uint64_t length,
@@ -58,6 +76,10 @@ void ScanCarve(Disk& disk, uint64_t startOffset, uint64_t length,
 // Write a discovered file out to `outputPath`. Returns bytes written, or -1.
 int64_t RecoverFile(Disk& disk, const RecoveredFile& file,
                     const std::wstring& outputPath);
+
+// Read up to `maxBytes` of a discovered file's content into memory (for preview).
+std::vector<uint8_t> ReadRecoveredBytes(Disk& disk, const RecoveredFile& file,
+                                        size_t maxBytes);
 
 // Sanitize an arbitrary name into something safe for the filesystem.
 std::wstring SanitizeFileName(const std::wstring& name);

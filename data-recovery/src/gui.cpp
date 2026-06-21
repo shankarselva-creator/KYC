@@ -4,6 +4,7 @@
 // buttons, a results list view, a progress bar and a status line. Scans run on a
 // worker thread and post results back to the UI thread.
 #include "recovery.h"
+#include "preview.h"
 #include <windows.h>
 #include <commctrl.h>
 #include <shlobj.h>
@@ -25,6 +26,7 @@ enum {
     IDC_UNDELETE,
     IDC_CARVE,
     IDC_PARTITIONS,
+    IDC_PREVIEW,
     IDC_RECOVER,
     IDC_LIST,
     IDC_PROGRESS,
@@ -36,7 +38,8 @@ constexpr UINT WM_APP_PROGRESS = WM_APP + 2; // wParam = pct, lParam = wstring*
 constexpr UINT WM_APP_DONE     = WM_APP + 3;
 
 HWND g_main = nullptr, g_combo, g_list, g_progress, g_status;
-HWND g_btnUndelete, g_btnCarve, g_btnPartitions, g_btnRecover, g_btnRefresh;
+HWND g_btnUndelete, g_btnCarve, g_btnPartitions, g_btnRecover, g_btnRefresh,
+     g_btnPreview;
 
 std::vector<DiskInfo>      g_disks;
 std::vector<RecoveredFile> g_results;
@@ -62,6 +65,7 @@ void EnableScanButtons(bool enable) {
     EnableWindow(g_btnCarve, enable);
     EnableWindow(g_btnPartitions, enable);
     EnableWindow(g_btnRecover, enable);
+    EnableWindow(g_btnPreview, enable);
     EnableWindow(g_btnRefresh, enable);
     EnableWindow(g_combo, enable);
 }
@@ -147,17 +151,17 @@ void RunUndelete(DiskInfo info) {
     if (info.isPhysical) {
         auto parts = ScanPartitions(disk);
         if (parts.empty()) {
-            ScanNtfsDeleted(disk, 0, L"whole disk", progress, sink);
+            ScanDeletedAuto(disk, 0, L"whole disk", progress, sink);
         } else {
             for (const auto& p : parts) {
                 if (g_cancel.load()) break;
                 wchar_t lbl[64];
                 swprintf(lbl, 64, L"partition %d (%s)", p.index, p.type.c_str());
-                ScanNtfsDeleted(disk, p.startOffset, lbl, progress, sink);
+                ScanDeletedAuto(disk, p.startOffset, lbl, progress, sink);
             }
         }
     } else {
-        ScanNtfsDeleted(disk, 0, L"volume", progress, sink);
+        ScanDeletedAuto(disk, 0, L"volume", progress, sink);
     }
     PostMessageW(g_main, WM_APP_DONE, 0, 0);
 }
@@ -281,6 +285,32 @@ void RecoverSelected() {
     SetStatus(msg);
 }
 
+void PreviewSelected() {
+    int item = ListView_GetNextItem(g_list, -1, LVNI_SELECTED);
+    if (item < 0) {
+        SetStatus(L"Select a file in the list to preview.");
+        return;
+    }
+    int sel = static_cast<int>(SendMessageW(g_combo, CB_GETCURSEL, 0, 0));
+    if (sel < 0 || sel >= static_cast<int>(g_disks.size()))
+        return;
+
+    LVITEMW q{};
+    q.mask = LVIF_PARAM;
+    q.iItem = item;
+    ListView_GetItem(g_list, &q);
+    int idx = static_cast<int>(q.lParam);
+
+    RecoveredFile rf;
+    {
+        std::lock_guard<std::mutex> lk(g_resultsMutex);
+        if (idx < 0 || idx >= static_cast<int>(g_results.size()))
+            return;
+        rf = g_results[idx];
+    }
+    ShowPreview(g_main, g_disks[sel].path, rf);
+}
+
 void CreateControls(HWND hwnd) {
     g_combo = CreateWindowW(L"COMBOBOX", L"",
         WS_CHILD | WS_VISIBLE | CBS_DROPDOWNLIST | WS_VSCROLL,
@@ -296,10 +326,13 @@ void CreateControls(HWND hwnd) {
         WS_CHILD | WS_VISIBLE, 150, 46, 150, 28, hwnd, (HMENU)IDC_CARVE,
         nullptr, nullptr);
     g_btnPartitions = CreateWindowW(L"BUTTON", L"Scan Partitions",
-        WS_CHILD | WS_VISIBLE, 310, 46, 130, 28, hwnd, (HMENU)IDC_PARTITIONS,
+        WS_CHILD | WS_VISIBLE, 310, 46, 120, 28, hwnd, (HMENU)IDC_PARTITIONS,
+        nullptr, nullptr);
+    g_btnPreview = CreateWindowW(L"BUTTON", L"Preview",
+        WS_CHILD | WS_VISIBLE, 436, 46, 90, 28, hwnd, (HMENU)IDC_PREVIEW,
         nullptr, nullptr);
     g_btnRecover = CreateWindowW(L"BUTTON", L"Recover Selected...",
-        WS_CHILD | WS_VISIBLE, 540, 46, 130, 28, hwnd, (HMENU)IDC_RECOVER,
+        WS_CHILD | WS_VISIBLE, 532, 46, 138, 28, hwnd, (HMENU)IDC_RECOVER,
         nullptr, nullptr);
 
     g_list = CreateWindowW(WC_LISTVIEWW, L"",
@@ -342,9 +375,19 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
         case IDC_UNDELETE:   StartScan(0); return 0;
         case IDC_CARVE:      StartScan(1); return 0;
         case IDC_PARTITIONS: StartScan(2); return 0;
+        case IDC_PREVIEW:    PreviewSelected(); return 0;
         case IDC_RECOVER:    RecoverSelected(); return 0;
         }
         return 0;
+
+    case WM_NOTIFY: {
+        auto* nm = reinterpret_cast<LPNMHDR>(lParam);
+        if (nm->idFrom == IDC_LIST && nm->code == NM_DBLCLK) {
+            PreviewSelected();
+            return 0;
+        }
+        return 0;
+    }
 
     case WM_APP_ADD:
         OnAddResult(static_cast<int>(wParam));
@@ -385,6 +428,7 @@ int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE, PWSTR, int nShow) {
         ICC_LISTVIEW_CLASSES | ICC_PROGRESS_CLASS | ICC_STANDARD_CLASSES};
     InitCommonControlsEx(&icc);
     CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
+    PreviewInit();
 
     const wchar_t* kClass = L"DataRecoveryWnd";
     WNDCLASSW wc{};
@@ -410,6 +454,7 @@ int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE, PWSTR, int nShow) {
         TranslateMessage(&m);
         DispatchMessageW(&m);
     }
+    PreviewShutdown();
     CoUninitialize();
     return 0;
 }
