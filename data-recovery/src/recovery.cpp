@@ -2,6 +2,7 @@
 #include "recovery.h"
 #include <algorithm>
 #include <cstring>
+#include <cstdio>
 
 FsType DetectFilesystem(Disk& disk, uint64_t partStart) {
     uint8_t boot[512];
@@ -87,6 +88,114 @@ std::wstring SanitizeFileName(const std::wstring& name) {
     if (out.size() > 200)
         out.resize(200);
     return out;
+}
+
+// --- scan-result serialization -----------------------------------------
+// Simple little-endian binary format; strings are stored as UTF-16 with a
+// preceding 32-bit length (in code units).
+namespace {
+
+const char kMagic[4] = {'D', 'R', 'S', 'V'};
+const uint32_t kVersion = 1;
+
+void putU32(FILE* f, uint32_t v) { fwrite(&v, 4, 1, f); }
+void putU64(FILE* f, uint64_t v) { fwrite(&v, 8, 1, f); }
+void putStr(FILE* f, const std::wstring& s) {
+    putU32(f, static_cast<uint32_t>(s.size()));
+    for (wchar_t c : s) {
+        uint16_t u = static_cast<uint16_t>(c);
+        fwrite(&u, 2, 1, f);
+    }
+}
+bool getU32(FILE* f, uint32_t& v) { return fread(&v, 4, 1, f) == 1; }
+bool getU64(FILE* f, uint64_t& v) { return fread(&v, 8, 1, f) == 1; }
+bool getStr(FILE* f, std::wstring& s) {
+    uint32_t n;
+    if (!getU32(f, n) || n > (1u << 24))
+        return false;
+    s.clear();
+    s.reserve(n);
+    for (uint32_t i = 0; i < n; ++i) {
+        uint16_t u;
+        if (fread(&u, 2, 1, f) != 1)
+            return false;
+        s.push_back(static_cast<wchar_t>(u));
+    }
+    return true;
+}
+
+} // namespace
+
+bool SaveResults(const std::wstring& path, const std::wstring& devicePath,
+                 const std::vector<RecoveredFile>& results) {
+    FILE* f = _wfopen(path.c_str(), L"wb");
+    if (!f)
+        return false;
+    fwrite(kMagic, 1, 4, f);
+    putU32(f, kVersion);
+    putStr(f, devicePath);
+    putU32(f, static_cast<uint32_t>(results.size()));
+    for (const auto& r : results) {
+        putStr(f, r.name);
+        putStr(f, r.source);
+        putU64(f, r.size);
+        putU32(f, static_cast<uint32_t>(r.method));
+        fputc(r.deleted ? 1 : 0, f);
+        fputc(r.resident ? 1 : 0, f);
+        putU32(f, static_cast<uint32_t>(r.residentData.size()));
+        if (!r.residentData.empty())
+            fwrite(r.residentData.data(), 1, r.residentData.size(), f);
+        putU32(f, static_cast<uint32_t>(r.extents.size()));
+        for (const auto& e : r.extents) {
+            putU64(f, e.diskOffset);
+            putU64(f, e.length);
+        }
+    }
+    fclose(f);
+    return true;
+}
+
+bool LoadResults(const std::wstring& path, std::wstring& devicePath,
+                 std::vector<RecoveredFile>& results) {
+    FILE* f = _wfopen(path.c_str(), L"rb");
+    if (!f)
+        return false;
+    char magic[4];
+    uint32_t version = 0, count = 0;
+    bool ok = fread(magic, 1, 4, f) == 4 && std::memcmp(magic, kMagic, 4) == 0 &&
+              getU32(f, version) && version == kVersion &&
+              getStr(f, devicePath) && getU32(f, count) && count <= (1u << 22);
+    if (!ok) { fclose(f); return false; }
+
+    results.clear();
+    results.reserve(count);
+    for (uint32_t i = 0; i < count && ok; ++i) {
+        RecoveredFile r;
+        uint32_t method = 0, rlen = 0, ecount = 0;
+        ok = getStr(f, r.name) && getStr(f, r.source) && getU64(f, r.size) &&
+             getU32(f, method);
+        if (!ok) break;
+        r.method = static_cast<RecMethod>(method);
+        r.deleted = fgetc(f) ? true : false;
+        r.resident = fgetc(f) ? true : false;
+        if (!getU32(f, rlen) || rlen > (1u << 26)) { ok = false; break; }
+        r.residentData.resize(rlen);
+        if (rlen && fread(r.residentData.data(), 1, rlen, f) != rlen) {
+            ok = false; break;
+        }
+        if (!getU32(f, ecount) || ecount > (1u << 22)) { ok = false; break; }
+        for (uint32_t j = 0; j < ecount; ++j) {
+            Extent e;
+            if (!getU64(f, e.diskOffset) || !getU64(f, e.length)) {
+                ok = false; break;
+            }
+            r.extents.push_back(e);
+        }
+        if (ok)
+            results.push_back(std::move(r));
+    }
+    fclose(f);
+    return ok;
 }
 
 int64_t RecoverFile(Disk& disk, const RecoveredFile& file,

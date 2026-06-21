@@ -8,6 +8,7 @@
 #include <windows.h>
 #include <commctrl.h>
 #include <shlobj.h>
+#include <commdlg.h>
 #include <thread>
 #include <atomic>
 #include <mutex>
@@ -17,6 +18,7 @@
 #pragma comment(lib, "comctl32.lib")
 #pragma comment(lib, "shell32.lib")
 #pragma comment(lib, "ole32.lib")
+#pragma comment(lib, "comdlg32.lib")
 
 namespace {
 
@@ -28,9 +30,13 @@ enum {
     IDC_PARTITIONS,
     IDC_PREVIEW,
     IDC_RECOVER,
+    IDC_CANCEL,
     IDC_LIST,
     IDC_PROGRESS,
     IDC_STATUS,
+    IDM_SAVE,
+    IDM_LOAD,
+    IDM_EXIT,
 };
 
 constexpr UINT WM_APP_ADD      = WM_APP + 1; // wParam = result index
@@ -39,8 +45,9 @@ constexpr UINT WM_APP_DONE     = WM_APP + 3;
 
 HWND g_main = nullptr, g_combo, g_list, g_progress, g_status;
 HWND g_btnUndelete, g_btnCarve, g_btnPartitions, g_btnRecover, g_btnRefresh,
-     g_btnPreview;
+     g_btnPreview, g_btnCancel;
 
+std::wstring               g_activeDevicePath; // device the results belong to
 std::vector<DiskInfo>      g_disks;
 std::vector<RecoveredFile> g_results;
 std::mutex                 g_resultsMutex;
@@ -68,6 +75,18 @@ void EnableScanButtons(bool enable) {
     EnableWindow(g_btnPreview, enable);
     EnableWindow(g_btnRefresh, enable);
     EnableWindow(g_combo, enable);
+    EnableWindow(g_btnCancel, !enable); // cancel is active only during a scan
+}
+
+// Device that the current results belong to (from a scan or a loaded file),
+// falling back to the combo box selection.
+std::wstring ActiveDevice() {
+    if (!g_activeDevicePath.empty())
+        return g_activeDevicePath;
+    int sel = static_cast<int>(SendMessageW(g_combo, CB_GETCURSEL, 0, 0));
+    if (sel >= 0 && sel < static_cast<int>(g_disks.size()))
+        return g_disks[sel].path;
+    return L"";
 }
 
 void PopulateDevices() {
@@ -216,6 +235,7 @@ void StartScan(int mode) { // 0 = undelete, 1 = carve, 2 = partitions
     g_running.store(true);
     EnableScanButtons(false);
     DiskInfo info = g_disks[sel];
+    g_activeDevicePath = info.path;
     if (g_worker.joinable())
         g_worker.join();
     if (mode == 0)      g_worker = std::thread(RunUndelete, info);
@@ -243,15 +263,15 @@ void RecoverSelected() {
         SetStatus(L"Select one or more files in the list first.");
         return;
     }
-    int sel = static_cast<int>(SendMessageW(g_combo, CB_GETCURSEL, 0, 0));
-    if (sel < 0 || sel >= static_cast<int>(g_disks.size()))
+    std::wstring device = ActiveDevice();
+    if (device.empty())
         return;
     std::wstring folder = PickFolder(g_main);
     if (folder.empty())
         return;
 
     Disk disk;
-    if (!disk.open(g_disks[sel].path)) {
+    if (!disk.open(device)) {
         SetStatus(L"Cannot reopen device for recovery.");
         return;
     }
@@ -291,8 +311,8 @@ void PreviewSelected() {
         SetStatus(L"Select a file in the list to preview.");
         return;
     }
-    int sel = static_cast<int>(SendMessageW(g_combo, CB_GETCURSEL, 0, 0));
-    if (sel < 0 || sel >= static_cast<int>(g_disks.size()))
+    std::wstring device = ActiveDevice();
+    if (device.empty())
         return;
 
     LVITEMW q{};
@@ -308,7 +328,77 @@ void PreviewSelected() {
             return;
         rf = g_results[idx];
     }
-    ShowPreview(g_main, g_disks[sel].path, rf);
+    ShowPreview(g_main, device, rf);
+}
+
+void OnCancel() {
+    if (g_running.load()) {
+        g_cancel.store(true);
+        SetStatus(L"Cancelling...");
+    }
+}
+
+std::wstring RunFileDialog(bool save) {
+    wchar_t file[MAX_PATH] = L"scan.drsv";
+    OPENFILENAMEW ofn{};
+    ofn.lStructSize = sizeof(ofn);
+    ofn.hwndOwner = g_main;
+    ofn.lpstrFilter = L"Recovery scan (*.drsv)\0*.drsv\0All files\0*.*\0";
+    ofn.lpstrFile = file;
+    ofn.nMaxFile = MAX_PATH;
+    ofn.lpstrDefExt = L"drsv";
+    ofn.Flags = save ? (OFN_OVERWRITEPROMPT | OFN_PATHMUSTEXIST)
+                     : (OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST);
+    BOOL ok = save ? GetSaveFileNameW(&ofn) : GetOpenFileNameW(&ofn);
+    return ok ? std::wstring(file) : std::wstring();
+}
+
+void SaveResultsCmd() {
+    if (g_running.load()) return;
+    std::vector<RecoveredFile> snapshot;
+    {
+        std::lock_guard<std::mutex> lk(g_resultsMutex);
+        snapshot = g_results;
+    }
+    if (snapshot.empty()) {
+        SetStatus(L"Nothing to save - run a scan first.");
+        return;
+    }
+    std::wstring path = RunFileDialog(true);
+    if (path.empty()) return;
+    if (SaveResults(path, g_activeDevicePath, snapshot))
+        SetStatus(L"Saved " + std::to_wstring(snapshot.size()) +
+                  L" results to " + path);
+    else
+        SetStatus(L"Failed to save results.");
+}
+
+void LoadResultsCmd() {
+    if (g_running.load()) return;
+    std::wstring path = RunFileDialog(false);
+    if (path.empty()) return;
+
+    std::wstring device;
+    std::vector<RecoveredFile> loaded;
+    if (!LoadResults(path, device, loaded)) {
+        SetStatus(L"Failed to load (not a valid .drsv file).");
+        return;
+    }
+    ClearResults();
+    g_activeDevicePath = device;
+    {
+        std::lock_guard<std::mutex> lk(g_resultsMutex);
+        g_results = std::move(loaded);
+    }
+    int n;
+    {
+        std::lock_guard<std::mutex> lk(g_resultsMutex);
+        n = static_cast<int>(g_results.size());
+    }
+    for (int i = 0; i < n; ++i)
+        OnAddResult(i);
+    SetStatus(L"Loaded " + std::to_wstring(n) + L" results (device " +
+              device + L")");
 }
 
 void CreateControls(HWND hwnd) {
@@ -320,20 +410,24 @@ void CreateControls(HWND hwnd) {
         nullptr, nullptr);
 
     g_btnUndelete = CreateWindowW(L"BUTTON", L"Undelete Scan",
-        WS_CHILD | WS_VISIBLE, 10, 46, 130, 28, hwnd, (HMENU)IDC_UNDELETE,
+        WS_CHILD | WS_VISIBLE, 10, 46, 110, 28, hwnd, (HMENU)IDC_UNDELETE,
         nullptr, nullptr);
-    g_btnCarve = CreateWindowW(L"BUTTON", L"Deep Scan (Carve)",
-        WS_CHILD | WS_VISIBLE, 150, 46, 150, 28, hwnd, (HMENU)IDC_CARVE,
+    g_btnCarve = CreateWindowW(L"BUTTON", L"Deep Scan",
+        WS_CHILD | WS_VISIBLE, 124, 46, 100, 28, hwnd, (HMENU)IDC_CARVE,
         nullptr, nullptr);
-    g_btnPartitions = CreateWindowW(L"BUTTON", L"Scan Partitions",
-        WS_CHILD | WS_VISIBLE, 310, 46, 120, 28, hwnd, (HMENU)IDC_PARTITIONS,
+    g_btnPartitions = CreateWindowW(L"BUTTON", L"Partitions",
+        WS_CHILD | WS_VISIBLE, 228, 46, 90, 28, hwnd, (HMENU)IDC_PARTITIONS,
         nullptr, nullptr);
     g_btnPreview = CreateWindowW(L"BUTTON", L"Preview",
-        WS_CHILD | WS_VISIBLE, 436, 46, 90, 28, hwnd, (HMENU)IDC_PREVIEW,
+        WS_CHILD | WS_VISIBLE, 322, 46, 80, 28, hwnd, (HMENU)IDC_PREVIEW,
         nullptr, nullptr);
     g_btnRecover = CreateWindowW(L"BUTTON", L"Recover Selected...",
-        WS_CHILD | WS_VISIBLE, 532, 46, 138, 28, hwnd, (HMENU)IDC_RECOVER,
+        WS_CHILD | WS_VISIBLE, 406, 46, 130, 28, hwnd, (HMENU)IDC_RECOVER,
         nullptr, nullptr);
+    g_btnCancel = CreateWindowW(L"BUTTON", L"Cancel",
+        WS_CHILD | WS_VISIBLE, 540, 46, 80, 28, hwnd, (HMENU)IDC_CANCEL,
+        nullptr, nullptr);
+    EnableWindow(g_btnCancel, FALSE);
 
     g_list = CreateWindowW(WC_LISTVIEWW, L"",
         WS_CHILD | WS_VISIBLE | LVS_REPORT | WS_BORDER,
@@ -364,10 +458,19 @@ void CreateControls(HWND hwnd) {
 
 LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
     switch (msg) {
-    case WM_CREATE:
+    case WM_CREATE: {
+        HMENU bar = CreateMenu();
+        HMENU fileMenu = CreatePopupMenu();
+        AppendMenuW(fileMenu, MF_STRING, IDM_SAVE, L"&Save Results...");
+        AppendMenuW(fileMenu, MF_STRING, IDM_LOAD, L"&Load Results...");
+        AppendMenuW(fileMenu, MF_SEPARATOR, 0, nullptr);
+        AppendMenuW(fileMenu, MF_STRING, IDM_EXIT, L"E&xit");
+        AppendMenuW(bar, MF_POPUP, (UINT_PTR)fileMenu, L"&File");
+        SetMenu(hwnd, bar);
         CreateControls(hwnd);
         PopulateDevices();
         return 0;
+    }
 
     case WM_COMMAND:
         switch (LOWORD(wParam)) {
@@ -377,6 +480,10 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
         case IDC_PARTITIONS: StartScan(2); return 0;
         case IDC_PREVIEW:    PreviewSelected(); return 0;
         case IDC_RECOVER:    RecoverSelected(); return 0;
+        case IDC_CANCEL:     OnCancel(); return 0;
+        case IDM_SAVE:       SaveResultsCmd(); return 0;
+        case IDM_LOAD:       LoadResultsCmd(); return 0;
+        case IDM_EXIT:       SendMessageW(hwnd, WM_CLOSE, 0, 0); return 0;
         }
         return 0;
 
@@ -442,7 +549,7 @@ int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE, PWSTR, int nShow) {
 
     g_main = CreateWindowW(kClass, L"Hard Disk Data Recovery",
         WS_OVERLAPPEDWINDOW & ~WS_THICKFRAME & ~WS_MAXIMIZEBOX,
-        CW_USEDEFAULT, CW_USEDEFAULT, 700, 580,
+        CW_USEDEFAULT, CW_USEDEFAULT, 700, 605,
         nullptr, nullptr, hInst, nullptr);
     if (!g_main)
         return 1;

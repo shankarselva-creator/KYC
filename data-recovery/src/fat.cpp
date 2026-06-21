@@ -104,6 +104,19 @@ uint32_t FatNext(Disk& disk, const FatLayout& L, uint32_t c) {
     }
 }
 
+// Extract the (up to) 13 UTF-16 characters held in one LFN directory entry.
+std::wstring LfnSegment(const uint8_t* e) {
+    static const int idx[13] = {1, 3, 5, 7, 9, 14, 16, 18, 20, 22, 24, 28, 30};
+    std::wstring s;
+    for (int i = 0; i < 13; ++i) {
+        wchar_t c = static_cast<wchar_t>(rd16(e + idx[i]));
+        if (c == 0x0000 || c == 0xFFFF)
+            break;
+        s.push_back(c);
+    }
+    return s;
+}
+
 std::wstring ShortName(const uint8_t* e) {
     char name[13];
     int n = 0;
@@ -132,16 +145,29 @@ void WalkFatDir(Disk& disk, const FatLayout& L, uint32_t startCluster,
         return;
 
     std::vector<uint8_t> buf;
+    std::vector<std::wstring> lfnParts;     // accumulated across entries
     auto processBuffer = [&](const uint8_t* data, size_t len) {
         for (size_t off = 0; off + 32 <= len; off += 32) {
             const uint8_t* e = data + off;
             if (e[0] == 0x00)
                 return false;            // end of directory
             uint8_t attr = e[0x0B];
-            if ((attr & 0x0F) == 0x0F)
-                continue;                // long-file-name component
-            if (attr & 0x08)
+            if ((attr & 0x0F) == 0x0F) {
+                lfnParts.push_back(LfnSegment(e)); // long-file-name component
+                continue;
+            }
+            if (attr & 0x08) {
+                lfnParts.clear();
                 continue;                // volume label
+            }
+
+            // Reassemble the long name (entries precede the short one in
+            // reverse sequence order). Survives deletion when the name bytes
+            // are intact.
+            std::wstring longName;
+            for (auto it = lfnParts.rbegin(); it != lfnParts.rend(); ++it)
+                longName += *it;
+            lfnParts.clear();
 
             uint32_t clus = (uint32_t(rd16(e + 0x14)) << 16) | rd16(e + 0x1A);
             uint32_t size = rd32(e + 0x1C);
@@ -155,7 +181,7 @@ void WalkFatDir(Disk& disk, const FatLayout& L, uint32_t startCluster,
                 rf.method = RecMethod::NtfsUndelete;
                 rf.deleted = true;
                 rf.source = label;
-                rf.name = ShortName(e);
+                rf.name = longName.empty() ? ShortName(e) : longName;
                 rf.size = size;
                 uint64_t clustersNeeded =
                     (uint64_t(size) + L.clusterBytes - 1) / L.clusterBytes;

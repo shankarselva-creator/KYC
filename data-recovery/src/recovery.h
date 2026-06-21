@@ -83,3 +83,10 @@ std::vector<uint8_t> ReadRecoveredBytes(Disk& disk, const RecoveredFile& file,
 
 // Sanitize an arbitrary name into something safe for the filesystem.
 std::wstring SanitizeFileName(const std::wstring& name);
+
+// Persist / restore a scan result set (so a scan can be reloaded later without
+// rescanning). The originating device path is stored alongside the results.
+bool SaveResults(const std::wstring& path, const std::wstring& devicePath,
+                 const std::vector<RecoveredFile>& results);
+bool LoadResults(const std::wstring& path, std::wstring& devicePath,
+                 std::vector<RecoveredFile>& results);

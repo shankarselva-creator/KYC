@@ -9,6 +9,8 @@ disks, SSDs and removable drives. It implements three recovery strategies:
 | **Deep Scan (Carve)** | Streams raw sectors and reconstructs files by their signatures (JPG, PNG, GIF, PDF, ZIP/Office, RAR, GZIP, MP3, legacy DOC). Works even when the filesystem is gone or formatted. |
 | **Scan Partitions** | Reads the MBR / GPT partition tables and lists partitions (start offset, size, type) — useful for diagnosing lost partitions. |
 | **Preview** | Select a result and click **Preview** (or double-click it) to see it before recovering: image thumbnail for JPG/PNG/GIF/BMP (via GDI+), or a hex/text dump for anything else. |
+| **Cancel** | Stop a long-running scan at any time with the **Cancel** button. |
+| **Save / Load results** | `File ▸ Save Results...` writes the current scan to a `.drsv` file; `File ▸ Load Results...` restores it later so you can recover without rescanning. |
 
 > ⚠️ **Read-only by design.** The tool opens disks for reading only and writes
 > recovered files to a folder *you* choose. Always recover to a **different**
@@ -86,9 +88,11 @@ desktop) shortcuts, and registers an uninstaller.
 - FAT/exFAT undelete assumes contiguous allocation (deleted cluster chains are
   freed); fragmented deleted files may be partially recovered.
 - Carving uses fixed signature heuristics; fragmented files may be truncated.
-- FAT undelete reconstructs the 8.3 short name (first character is lost on
-  deletion and shown as `_`); long-file-name reassembly is not yet done.
-- No scan-result save/load.
+- FAT undelete reassembles the long file name when its directory entries are
+  intact; otherwise it falls back to the 8.3 short name (whose first character
+  is lost on deletion and shown as `_`).
 - Recovered carved files are named by disk offset, not original name.
+- A loaded `.drsv` result set recovers correctly only against the same physical
+  device it was scanned from (extents are absolute disk offsets).
 
 Contributions and refinements to any of the above are welcome.
