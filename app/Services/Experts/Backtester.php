@@ -29,6 +29,7 @@ class Backtester
         float $volume,
         ?int $slPips,
         ?int $tpPips,
+        ?int $trailingPips,
         int $maxPositions,
         Collection $candles,
     ): array {
@@ -106,6 +107,23 @@ class Backtester
                         'sl'    => $slPips ? round($isBuy ? $close - $slPips * $pip : $close + $slPips * $pip, $digits) : null,
                         'tp'    => $tpPips ? round($isBuy ? $close + $tpPips * $pip : $close - $tpPips * $pip, $digits) : null,
                     ];
+                }
+            }
+
+            // Trailing stop: ratchet SL off this bar's close (no intrabar look-ahead).
+            if ($trailingPips) {
+                foreach ($positions as $k => $p) {
+                    if ($p['side'] === 'buy') {
+                        $ns = round($close - $trailingPips * $pip, $digits);
+                        if ($p['sl'] === null || $ns > $p['sl']) {
+                            $positions[$k]['sl'] = $ns;
+                        }
+                    } else {
+                        $ns = round($close + $trailingPips * $pip, $digits);
+                        if ($p['sl'] === null || $ns < $p['sl']) {
+                            $positions[$k]['sl'] = $ns;
+                        }
+                    }
                 }
             }
         }

@@ -59,7 +59,7 @@ class BacktestTest extends TestCase
 
         $bars = app(CandleService::class)->recent($ins, 'M5', 500);
         $report = app(Backtester::class)->run(
-            new MovingAverageCrossStrategy(), $ins, ['fast' => 5, 'slow' => 20], 0.10, null, null, 1, $bars,
+            new MovingAverageCrossStrategy(), $ins, ['fast' => 5, 'slow' => 20], 0.10, null, null, null, 1, $bars,
         );
 
         $this->assertGreaterThan(0, $report['trades']);
@@ -96,6 +96,35 @@ class BacktestTest extends TestCase
                 'symbol', 'currency', 'trades', 'wins', 'losses', 'win_rate',
                 'net_profit', 'profit_factor', 'max_drawdown', 'bars',
             ]]);
+    }
+
+    public function test_optimize_returns_ranked_results(): void
+    {
+        $ins = $this->instrument();
+        $closes = [];
+        for ($i = 0; $i < 40; $i++) {
+            $closes[] = 1.20000 - $i * 0.0010;
+        }
+        for ($i = 0; $i < 100; $i++) {
+            $closes[] = 1.16100 + $i * 0.0010;
+        }
+        $this->seedBars($ins, $closes);
+        $user = User::create(['name' => 'O', 'email' => 'o@example.com', 'password' => bcrypt('x')]);
+        app(AccountProvisioner::class)->createDemoAccount($user);
+
+        $response = $this->actingAs($user)->postJson('/api/experts/optimize', [
+            'strategy' => 'ma_cross', 'symbol' => 'EURUSD', 'timeframe' => 'M5', 'volume' => 0.10,
+        ]);
+
+        $response->assertOk()
+            ->assertJsonStructure(['data' => ['tested', 'results' => [['params', 'net_profit', 'trades']]]]);
+
+        $results = $response->json('data.results');
+        $this->assertGreaterThan(1, $response->json('data.tested'));
+        // Ranked by net profit descending.
+        for ($i = 1; $i < count($results); $i++) {
+            $this->assertGreaterThanOrEqual($results[$i]['net_profit'], $results[$i - 1]['net_profit']);
+        }
     }
 
     public function test_backtest_requires_history(): void

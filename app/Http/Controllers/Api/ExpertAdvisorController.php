@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Models\ExpertAdvisor;
 use App\Models\Instrument;
 use App\Services\Experts\Backtester;
+use App\Services\Experts\Optimizer;
 use App\Services\Experts\StrategyRegistry;
 use App\Services\MarketData\CandleService;
 use Illuminate\Http\JsonResponse;
@@ -96,27 +97,81 @@ class ExpertAdvisorController extends Controller
     public function backtest(Request $request, Backtester $backtester, CandleService $candles): JsonResponse
     {
         $this->activeAccount($request);
+        $validated = $request->validate($this->simRules());
 
-        $validated = $request->validate([
+        [$strategy, $instrument, $bars, $params, $error] = $this->resolveSim($validated, $candles);
+        if ($error) {
+            return $error;
+        }
+
+        $report = $backtester->run(
+            $strategy, $instrument, $params, (float) $validated['volume'],
+            $validated['stop_loss_pips'] ?? null, $validated['take_profit_pips'] ?? null,
+            $validated['trailing_stop_pips'] ?? null, $validated['max_positions'] ?? 1, $bars,
+        );
+        $report['bars'] = $bars->count();
+        $report['strategy'] = $strategy->key();
+        $report['timeframe'] = $validated['timeframe'];
+
+        return $this->ok($report);
+    }
+
+    /** Sweep a strategy's parameters via backtest and rank by net profit. */
+    public function optimize(Request $request, Optimizer $optimizer, CandleService $candles): JsonResponse
+    {
+        $this->activeAccount($request);
+        $validated = $request->validate($this->simRules());
+
+        [$strategy, $instrument, $bars, $params, $error] = $this->resolveSim($validated, $candles);
+        if ($error) {
+            return $error;
+        }
+
+        $result = $optimizer->optimize(
+            $strategy, $instrument, $params, (float) $validated['volume'],
+            $validated['stop_loss_pips'] ?? null, $validated['take_profit_pips'] ?? null,
+            $validated['trailing_stop_pips'] ?? null, $validated['max_positions'] ?? 1, $bars,
+        );
+
+        return $this->ok(array_merge($result, [
+            'strategy'  => $strategy->key(),
+            'timeframe' => $validated['timeframe'],
+            'bars'      => $bars->count(),
+        ]));
+    }
+
+    /** @return array<string, mixed> */
+    private function simRules(): array
+    {
+        return [
             'strategy'  => ['required', 'string'],
             'symbol'    => ['required', 'string', 'exists:instruments,symbol'],
             'timeframe' => ['required', 'in:'.implode(',', array_keys(CandleService::TIMEFRAMES))],
             'volume'    => ['required', 'numeric', 'min:0.01', 'max:100'],
             'params'    => ['nullable', 'array'],
-            'stop_loss_pips'   => ['nullable', 'integer', 'min:0', 'max:100000'],
-            'take_profit_pips' => ['nullable', 'integer', 'min:0', 'max:100000'],
-            'max_positions'    => ['nullable', 'integer', 'min:1', 'max:50'],
-        ]);
+            'stop_loss_pips'     => ['nullable', 'integer', 'min:0', 'max:100000'],
+            'take_profit_pips'   => ['nullable', 'integer', 'min:0', 'max:100000'],
+            'trailing_stop_pips' => ['nullable', 'integer', 'min:0', 'max:100000'],
+            'max_positions'      => ['nullable', 'integer', 'min:1', 'max:50'],
+        ];
+    }
 
+    /**
+     * Resolve the shared backtest/optimize inputs.
+     *
+     * @return array{0: ?\App\Services\Experts\Strategy, 1: ?Instrument, 2: mixed, 3: array, 4: ?JsonResponse}
+     */
+    private function resolveSim(array $validated, CandleService $candles): array
+    {
         $strategy = $this->registry->get($validated['strategy']);
         if (! $strategy) {
-            return $this->fail('UNKNOWN_STRATEGY', 'That strategy does not exist.', 422);
+            return [null, null, null, [], $this->fail('UNKNOWN_STRATEGY', 'That strategy does not exist.', 422)];
         }
 
         $instrument = Instrument::where('symbol', $validated['symbol'])->firstOrFail();
         $bars = $candles->recent($instrument, $validated['timeframe'], 500);
         if ($bars->count() < 50) {
-            return $this->fail('NO_HISTORY', 'Not enough candle history to backtest this symbol/timeframe.', 422);
+            return [null, null, null, [], $this->fail('NO_HISTORY', 'Not enough candle history to backtest this symbol/timeframe.', 422)];
         }
 
         $params = $this->registry->defaults($validated['strategy']);
@@ -126,16 +181,7 @@ class ExpertAdvisorController extends Controller
             }
         }
 
-        $report = $backtester->run(
-            $strategy, $instrument, $params, (float) $validated['volume'],
-            $validated['stop_loss_pips'] ?? null, $validated['take_profit_pips'] ?? null,
-            $validated['max_positions'] ?? 1, $bars,
-        );
-        $report['bars'] = $bars->count();
-        $report['strategy'] = $strategy->key();
-        $report['timeframe'] = $validated['timeframe'];
-
-        return $this->ok($report);
+        return [$strategy, $instrument, $bars, $params, null];
     }
 
     public function toggle(Request $request, ExpertAdvisor $expert): JsonResponse

@@ -442,8 +442,9 @@
                     </div>
                     <div id="experts-msg" class="text-xs min-h-[1rem]"></div>
                     <div id="ea-backtest-result" class="hidden text-xs bg-panel border border-edge rounded-md p-2"></div>
-                    <div class="grid grid-cols-2 gap-2">
+                    <div class="grid grid-cols-3 gap-2">
                         <button id="ea-backtest" class="bg-panel border border-edge hover:border-accent text-gray-200 font-semibold rounded-md py-2 text-sm">Backtest</button>
+                        <button id="ea-optimize" class="bg-panel border border-edge hover:border-accent text-gray-200 font-semibold rounded-md py-2 text-sm">Optimize</button>
                         <button id="ea-attach" class="bg-accent hover:bg-blue-600 text-white font-semibold rounded-md py-2 text-sm">Attach &amp; run</button>
                     </div>
                     <p class="text-[11px] text-gray-500">Experts run on the server with the price feed (<code>quotes:poll</code>); actions appear in the Journal.</p>
@@ -1519,6 +1520,54 @@
         ctx.lineWidth = 1.5; ctx.stroke();
     }
 
+    async function optimizeExpert() {
+        const msg = document.getElementById('experts-msg');
+        const out = document.getElementById('ea-backtest-result');
+        msg.className = 'text-xs min-h-[1rem] text-gray-400';
+        msg.textContent = 'Optimizing (sweeping parameters)…';
+        out.classList.add('hidden');
+        const { ok, json } = await api('{{ route('api.experts.optimize') }}', { method: 'POST', body: JSON.stringify(eaFormBody()) });
+        if (!ok) {
+            msg.className = 'text-xs min-h-[1rem] text-down';
+            msg.textContent = json.error?.message || (json.errors ? Object.values(json.errors)[0][0] : 'Optimize failed.');
+            return;
+        }
+        msg.textContent = '';
+        const r = json.data;
+        const rows = r.results.map(res => {
+            const pc = res.net_profit > 0 ? 'text-up' : res.net_profit < 0 ? 'text-down' : 'text-gray-300';
+            const pstr = Object.entries(res.params).map(([k, v]) => `${k} ${v}`).join(', ');
+            return `<tr class="border-t border-edge/50 hover:bg-panel2 cursor-pointer" data-apply='${JSON.stringify(res.params)}'>
+                <td class="px-2 py-1">${pstr}</td>
+                <td class="px-2 py-1 text-right tabular-nums ${pc}">${fmt(res.net_profit)}</td>
+                <td class="px-2 py-1 text-right tabular-nums">${res.trades}</td>
+                <td class="px-2 py-1 text-right tabular-nums">${res.win_rate == null ? '—' : res.win_rate + '%'}</td>
+                <td class="px-2 py-1 text-right tabular-nums">${res.profit_factor ?? '—'}</td>
+            </tr>`;
+        }).join('');
+        out.innerHTML =
+            `<div class="text-gray-400 mb-1">Optimization · tested ${r.tested} combos · ${r.bars} bars · ${r.timeframe} <span class="text-gray-600">(click a row to apply)</span></div>
+             <table class="w-full"><thead class="text-gray-500"><tr>
+                <th class="text-left px-2 py-1 font-medium">Params</th>
+                <th class="text-right px-2 py-1 font-medium">Net P/L</th>
+                <th class="text-right px-2 py-1 font-medium">Trades</th>
+                <th class="text-right px-2 py-1 font-medium">Win%</th>
+                <th class="text-right px-2 py-1 font-medium">PF</th>
+             </tr></thead><tbody>${rows}</tbody></table>`;
+        out.classList.remove('hidden');
+    }
+    document.getElementById('ea-backtest-result').addEventListener('click', e => {
+        const row = e.target.closest('[data-apply]');
+        if (!row) return;
+        const params = JSON.parse(row.dataset.apply);
+        Object.entries(params).forEach(([k, v]) => {
+            const input = document.querySelector(`#ea-params [data-eap="${k}"]`);
+            if (input) input.value = v;
+        });
+        document.getElementById('experts-msg').className = 'text-xs min-h-[1rem] text-up';
+        document.getElementById('experts-msg').textContent = 'Applied params — Backtest or Attach to use them.';
+    });
+
     async function attachExpert() {
         const body = eaFormBody();
         const msg = document.getElementById('experts-msg');
@@ -1539,6 +1588,7 @@
     document.getElementById('ea-strategy').addEventListener('change', renderEaParams);
     document.getElementById('ea-attach').addEventListener('click', attachExpert);
     document.getElementById('ea-backtest').addEventListener('click', backtestExpert);
+    document.getElementById('ea-optimize').addEventListener('click', optimizeExpert);
     document.getElementById('experts-list').addEventListener('click', async e => {
         const t = e.target.closest('[data-ea-toggle]'); const r = e.target.closest('[data-ea-remove]');
         if (t) { await api(`/api/experts/${t.dataset.eaToggle}/toggle`, { method: 'POST' }); loadExperts(); }
