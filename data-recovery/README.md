@@ -98,7 +98,22 @@ data-recovery/
 └── build_mingw.sh
 ```
 
-## Packaging an installer
+## Building the Setup.exe installer (no extra tools)
+
+A self-contained installer that embeds the app is built with mingw-w64 — no
+Inno Setup required:
+
+```bash
+./build_setup.sh
+# -> build/DataRecoverySetup.exe
+```
+
+Running `DataRecoverySetup.exe` (as Administrator) extracts the app to Program
+Files, creates a Start Menu shortcut (and an optional desktop shortcut), and
+registers it in Settings ▸ Apps. Uninstall from Settings ▸ Apps or from the
+app's Tools menu.
+
+## Packaging an installer (Inno Setup, optional)
 
 Install [Inno Setup](https://jrsoftware.org/isdl.php), build the exe, then:
 

@@ -111,6 +111,12 @@ bool UninstallApp(HWND owner) {
     std::wstring lnk = ShortcutPath();
     if (!lnk.empty()) DeleteFileW(lnk.c_str());
 
+    // Remove possible desktop shortcuts (per-user and public).
+    for (REFKNOWNFOLDERID id : {FOLDERID_Desktop, FOLDERID_PublicDesktop}) {
+        std::wstring d = KnownFolder(id);
+        if (!d.empty()) DeleteFileW((d + L"\\" + kAppName + L".lnk").c_str());
+    }
+
     RegDeleteKeyW(HKEY_LOCAL_MACHINE, kRegKey);
 
     // Remove the installed folder. A short delay lets this process exit so the
