@@ -8,6 +8,7 @@
 // Scans run on a worker thread and post results back to the UI thread.
 #include "recovery.h"
 #include "preview.h"
+#include "self_install.h"
 #include <windows.h>
 #include <commctrl.h>
 #include <shlobj.h>
@@ -47,6 +48,8 @@ enum {
     IDM_SAVE,
     IDM_LOAD,
     IDM_EXIT,
+    IDM_INSTALL,
+    IDM_UNINSTALL,
     // drive cards start here
     IDC_CARD_BASE = 3000,
 };
@@ -635,6 +638,10 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
         AppendMenuW(fileMenu, MF_SEPARATOR, 0, nullptr);
         AppendMenuW(fileMenu, MF_STRING, IDM_EXIT, L"E&xit");
         AppendMenuW(bar, MF_POPUP, (UINT_PTR)fileMenu, L"&File");
+        HMENU toolsMenu = CreatePopupMenu();
+        AppendMenuW(toolsMenu, MF_STRING, IDM_INSTALL, L"&Install on this PC...");
+        AppendMenuW(toolsMenu, MF_STRING, IDM_UNINSTALL, L"&Uninstall...");
+        AppendMenuW(bar, MF_POPUP, (UINT_PTR)toolsMenu, L"&Tools");
         SetMenu(hwnd, bar);
 
         g_font = MakeFont(15, FW_NORMAL);
@@ -685,6 +692,10 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
             return 0;
         case IDM_SAVE:       SaveResultsCmd(); return 0;
         case IDM_LOAD:       LoadResultsCmd(); return 0;
+        case IDM_INSTALL:    InstallApp(hwnd); return 0;
+        case IDM_UNINSTALL:
+            if (UninstallApp(hwnd)) SendMessageW(hwnd, WM_CLOSE, 0, 0);
+            return 0;
         case IDM_EXIT:       SendMessageW(hwnd, WM_CLOSE, 0, 0); return 0;
         }
         return 0;
@@ -775,12 +786,20 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 
 } // namespace
 
-int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE, PWSTR, int nShow) {
+int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE, PWSTR pCmdLine, int nShow) {
+    CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
+
+    // Triggered by the "Uninstall" entry in Apps & Features.
+    if (pCmdLine && wcsstr(pCmdLine, L"--uninstall")) {
+        UninstallApp(nullptr);
+        CoUninitialize();
+        return 0;
+    }
+
     INITCOMMONCONTROLSEX icc{sizeof(icc),
         ICC_LISTVIEW_CLASSES | ICC_TREEVIEW_CLASSES | ICC_PROGRESS_CLASS |
         ICC_STANDARD_CLASSES};
     InitCommonControlsEx(&icc);
-    CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
     PreviewInit();
 
     const wchar_t* kClass = L"DataRecoveryWnd";

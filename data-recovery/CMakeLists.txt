@@ -12,6 +12,7 @@ add_executable(DataRecovery WIN32
     src/carver.cpp
     src/recovery.cpp
     src/preview.cpp
+    src/self_install.cpp
     src/gui.cpp
     app.rc
 )
@@ -19,7 +20,7 @@ add_executable(DataRecovery WIN32
 # Unicode (wWinMain / *W APIs).
 target_compile_definitions(DataRecovery PRIVATE UNICODE _UNICODE)
 
-target_link_libraries(DataRecovery PRIVATE comctl32 shell32 ole32 gdiplus)
+target_link_libraries(DataRecovery PRIVATE comctl32 shell32 ole32 gdiplus uuid)
 
 if(MINGW)
     # Use the Windows (GUI) subsystem, Unicode entry point, static runtime.

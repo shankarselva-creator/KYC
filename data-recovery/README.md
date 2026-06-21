@@ -21,6 +21,20 @@ disks, SSDs and removable drives. It implements three recovery strategies:
 > drive than the one you are scanning, to avoid overwriting data you are trying
 > to get back.
 
+## Installing & uninstalling
+
+The app is a portable single `.exe` — you can just run it. If you'd like it
+properly installed:
+
+- **Install**: run the app and choose **Tools ▸ Install on this PC...**. This
+  copies it to Program Files, adds a Start Menu shortcut, and registers it in
+  **Settings ▸ Apps** (Add/Remove Programs).
+- **Uninstall**: either use Windows **Settings ▸ Apps ▸ Uninstall**, or open the
+  app and choose **Tools ▸ Uninstall...**. Both remove the shortcut, the
+  registry entry, and the installed files.
+
+(A traditional `installer.iss` for Inno Setup is also provided — see below.)
+
 ## Requirements
 
 - Windows 10/11 (x64)
