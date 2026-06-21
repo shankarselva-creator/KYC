@@ -5,6 +5,7 @@
 #include <gdiplus.h>
 #include <vector>
 #include <string>
+#include <algorithm>
 
 #pragma comment(lib, "gdiplus.lib")
 #pragma comment(lib, "ole32.lib")
@@ -104,6 +105,157 @@ void EnsureClass(HINSTANCE inst) {
 }
 
 } // namespace
+
+// --- inline preview pane ----------------------------------------------------
+
+namespace {
+
+struct PaneState {
+    Gdiplus::Image* image = nullptr;
+    IStream*        stream = nullptr;
+    std::wstring    header;   // file name + size
+    std::wstring    text;     // hex/info text when not an image
+    HFONT           font = nullptr;
+    HFONT           mono = nullptr;
+};
+
+void PaneClear(PaneState* st) {
+    if (st->image) { delete st->image; st->image = nullptr; }
+    if (st->stream) { st->stream->Release(); st->stream = nullptr; }
+    st->text.clear();
+    st->header.clear();
+}
+
+LRESULT CALLBACK PaneProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
+    auto* st = reinterpret_cast<PaneState*>(GetWindowLongPtr(hwnd, GWLP_USERDATA));
+    switch (msg) {
+    case WM_PAINT: {
+        PAINTSTRUCT ps;
+        HDC hdc = BeginPaint(hwnd, &ps);
+        RECT rc; GetClientRect(hwnd, &rc);
+        FillRect(hdc, &rc, (HBRUSH)(COLOR_BTNFACE + 1));
+        FrameRect(hdc, &rc, (HBRUSH)GetStockObject(GRAY_BRUSH));
+        SetBkMode(hdc, TRANSPARENT);
+
+        RECT head = rc; head.left += 8; head.top += 6; head.right -= 8;
+        head.bottom = head.top + 36;
+        if (st && st->font) SelectObject(hdc, st->font);
+        DrawTextW(hdc, st ? st->header.c_str() : L"", -1, &head,
+                  DT_LEFT | DT_WORDBREAK | DT_END_ELLIPSIS);
+
+        RECT body = rc; body.left += 8; body.top += 46; body.right -= 8;
+        body.bottom -= 8;
+        if (st && st->image) {
+            Gdiplus::Graphics g(hdc);
+            g.SetInterpolationMode(Gdiplus::InterpolationModeHighQuality);
+            UINT iw = st->image->GetWidth(), ih = st->image->GetHeight();
+            if (iw && ih) {
+                double bw = body.right - body.left, bh = body.bottom - body.top;
+                double s = (bw / iw < bh / ih) ? bw / iw : bh / ih;
+                if (s > 1.0) s = 1.0;
+                int w = int(iw * s), h = int(ih * s);
+                int x = body.left + int((bw - w) / 2);
+                int y = body.top + int((bh - h) / 2);
+                g.DrawImage(st->image, x, y, w, h);
+            }
+        } else if (st) {
+            if (st->mono) SelectObject(hdc, st->mono);
+            DrawTextW(hdc, st->text.c_str(), -1, &body,
+                      DT_LEFT | DT_TOP | DT_NOPREFIX);
+        }
+        EndPaint(hwnd, &ps);
+        return 0;
+    }
+    case WM_DESTROY:
+        if (st) {
+            PaneClear(st);
+            if (st->font) DeleteObject(st->font);
+            if (st->mono) DeleteObject(st->mono);
+            delete st;
+            SetWindowLongPtr(hwnd, GWLP_USERDATA, 0);
+        }
+        return 0;
+    }
+    return DefWindowProcW(hwnd, msg, wp, lp);
+}
+
+void EnsurePaneClass(HINSTANCE inst) {
+    static bool reg = false;
+    if (reg) return;
+    WNDCLASSW wc{};
+    wc.lpfnWndProc = PaneProc;
+    wc.hInstance = inst;
+    wc.lpszClassName = L"DRPreviewPane";
+    wc.hCursor = LoadCursor(nullptr, IDC_ARROW);
+    wc.hbrBackground = (HBRUSH)(COLOR_BTNFACE + 1);
+    RegisterClassW(&wc);
+    reg = true;
+}
+
+} // namespace
+
+HWND CreatePreviewPane(HWND parent, int x, int y, int w, int h,
+                       HINSTANCE inst) {
+    EnsurePaneClass(inst);
+    HWND pane = CreateWindowExW(0, L"DRPreviewPane", L"",
+        WS_CHILD | WS_VISIBLE, x, y, w, h, parent, nullptr, inst, nullptr);
+    auto* st = new PaneState();
+    st->font = CreateFontW(-15, 0, 0, 0, FW_SEMIBOLD, 0, 0, 0, DEFAULT_CHARSET,
+        0, 0, CLEARTYPE_QUALITY, 0, L"Segoe UI");
+    st->mono = CreateFontW(-13, 0, 0, 0, FW_NORMAL, 0, 0, 0, DEFAULT_CHARSET,
+        0, 0, CLEARTYPE_QUALITY, FIXED_PITCH, L"Consolas");
+    st->header = L"Select a file to preview";
+    SetWindowLongPtr(pane, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(st));
+    return pane;
+}
+
+void ClearPreviewPane(HWND pane) {
+    auto* st = reinterpret_cast<PaneState*>(GetWindowLongPtr(pane, GWLP_USERDATA));
+    if (!st) return;
+    PaneClear(st);
+    st->header = L"Select a file to preview";
+    InvalidateRect(pane, nullptr, TRUE);
+}
+
+void UpdatePreviewPane(HWND pane, const std::wstring& devicePath,
+                       const RecoveredFile& file) {
+    auto* st = reinterpret_cast<PaneState*>(GetWindowLongPtr(pane, GWLP_USERDATA));
+    if (!st) return;
+    PaneClear(st);
+
+    wchar_t hdr[300];
+    swprintf(hdr, 300, L"%s\n%.1f KB", file.name.c_str(), file.size / 1024.0);
+    st->header = hdr;
+
+    Disk disk;
+    std::vector<uint8_t> data;
+    if (disk.open(devicePath))
+        data = ReadRecoveredBytes(disk, file, 8u * 1024 * 1024);
+
+    if (data.empty()) {
+        st->text = L"(no readable data)";
+    } else if (LooksLikeImage(data)) {
+        HGLOBAL hg = GlobalAlloc(GMEM_MOVEABLE, data.size());
+        if (hg) {
+            void* p = GlobalLock(hg);
+            memcpy(p, data.data(), data.size());
+            GlobalUnlock(hg);
+            if (CreateStreamOnHGlobal(hg, TRUE, &st->stream) == S_OK) {
+                st->image = Gdiplus::Image::FromStream(st->stream);
+                if (st->image && st->image->GetLastStatus() != Gdiplus::Ok) {
+                    delete st->image; st->image = nullptr;
+                }
+            }
+        }
+        if (!st->image)
+            st->text = L"(image could not be decoded)";
+    } else {
+        std::vector<uint8_t> head(data.begin(),
+            data.begin() + std::min<size_t>(data.size(), 512));
+        st->text = L"Binary file. First bytes:\r\n\r\n" + HexDump(head);
+    }
+    InvalidateRect(pane, nullptr, TRUE);
+}
 
 void PreviewInit() {
     Gdiplus::GdiplusStartupInput in;

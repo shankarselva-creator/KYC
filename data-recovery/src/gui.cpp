@@ -11,6 +11,7 @@
 #include <windows.h>
 #include <commctrl.h>
 #include <shlobj.h>
+#include <shellapi.h>
 #include <commdlg.h>
 #include <thread>
 #include <atomic>
@@ -63,7 +64,10 @@ HWND g_title, g_deep, g_refresh;
 std::vector<HWND> g_cards;
 // Page 2 controls
 HWND g_back, g_stop, g_progress, g_status, g_tree, g_filter, g_list,
-     g_btnRecover, g_btnRecoverAll, g_btnPreview;
+     g_btnRecover, g_btnRecoverAll, g_preview;
+std::vector<HICON> g_cardIcons;     // parallel to g_cards
+HFONT g_font = nullptr, g_fontTitle = nullptr, g_fontCard = nullptr,
+      g_fontCardSub = nullptr;
 
 int                        g_page = 1;
 std::wstring               g_activeDevicePath;
@@ -105,6 +109,35 @@ std::wstring FormatDuration(uint64_t seconds) {
 }
 
 void SetStatus(const std::wstring& s) { SetWindowTextW(g_status, s.c_str()); }
+
+HFONT MakeFont(int px, int weight) {
+    return CreateFontW(-px, 0, 0, 0, weight, 0, 0, 0, DEFAULT_CHARSET, 0, 0,
+                       CLEARTYPE_QUALITY, 0, L"Segoe UI");
+}
+
+// Best-effort drive icon for a card.
+HICON DiskIcon(const DiskInfo& d) {
+    if (!d.isPhysical) {
+        // d.path looks like \\.\C:  -> root "C:\\"
+        wchar_t letter = 0;
+        for (wchar_t c : d.path)
+            if (iswalpha(c)) { letter = c; }
+        if (letter) {
+            wchar_t root[8];
+            swprintf(root, 8, L"%c:\\", letter);
+            SHFILEINFOW sfi{};
+            if (SHGetFileInfoW(root, 0, &sfi, sizeof(sfi),
+                               SHGFI_ICON | SHGFI_LARGEICON))
+                return sfi.hIcon;
+        }
+    }
+    SHSTOCKICONINFO sii{};
+    sii.cbSize = sizeof(sii);
+    if (SUCCEEDED(SHGetStockIconInfo(SIID_DRIVEFIXED,
+                                     SHGSI_ICON | SHGSI_LARGEICON, &sii)))
+        return sii.hIcon;
+    return LoadIcon(nullptr, IDI_APPLICATION);
+}
 
 Category CategoryOf(const std::wstring& name) {
     size_t dot = name.find_last_of(L'.');
@@ -415,28 +448,66 @@ void LoadResultsCmd() {
 
 void BuildLocationCards() {
     for (HWND h : g_cards) DestroyWindow(h);
+    for (HICON ic : g_cardIcons) if (ic) DestroyIcon(ic);
     g_cards.clear();
+    g_cardIcons.clear();
     g_disks = EnumerateDisks();
 
-    int x = 20, y = 96, w = 840, h = 56, gap = 10;
+    int x = 20, y = 96, w = 840, h = 64, gap = 12;
     int i = 0;
     for (const auto& d : g_disks) {
-        std::wstring text = d.path + L"\n   " + d.model + L"      " +
-                            HumanSize(d.sizeBytes) +
-                            (d.isPhysical ? L"   (whole disk)" : L"");
-        HWND card = CreateWindowW(L"BUTTON", text.c_str(),
-            WS_CHILD | WS_VISIBLE | BS_MULTILINE | BS_LEFT | BS_PUSHLIKE,
+        HWND card = CreateWindowW(L"BUTTON", L"",
+            WS_CHILD | WS_VISIBLE | BS_OWNERDRAW,
             x, y + i * (h + gap), w, h, g_main,
             (HMENU)(INT_PTR)(IDC_CARD_BASE + i), nullptr, nullptr);
         g_cards.push_back(card);
+        g_cardIcons.push_back(DiskIcon(d));
         ++i;
     }
     if (g_disks.empty()) {
         HWND none = CreateWindowW(L"STATIC",
             L"No drives found. Launch the app as Administrator.",
             WS_CHILD | WS_VISIBLE, x, y, w, 24, g_main, nullptr, nullptr, nullptr);
+        if (g_font) SendMessageW(none, WM_SETFONT, (WPARAM)g_font, TRUE);
         g_cards.push_back(none);
+        g_cardIcons.push_back(nullptr);
     }
+}
+
+// Owner-draw a drive card: icon on the left, path + details stacked.
+void DrawCard(LPDRAWITEMSTRUCT di) {
+    int idx = di->CtlID - IDC_CARD_BASE;
+    if (idx < 0 || idx >= static_cast<int>(g_disks.size())) return;
+    const DiskInfo& d = g_disks[idx];
+    HDC hdc = di->hDC;
+    RECT rc = di->rcItem;
+
+    bool hot = (di->itemState & (ODS_SELECTED | ODS_FOCUS)) != 0;
+    HBRUSH bg = CreateSolidBrush(hot ? RGB(225, 238, 252) : RGB(249, 249, 251));
+    FillRect(hdc, &rc, bg);
+    DeleteObject(bg);
+    HBRUSH border = CreateSolidBrush(hot ? RGB(120, 170, 230) : RGB(210, 210, 214));
+    FrameRect(hdc, &rc, border);
+    DeleteObject(border);
+
+    if (idx < (int)g_cardIcons.size() && g_cardIcons[idx])
+        DrawIconEx(hdc, rc.left + 14, rc.top + (rc.bottom - rc.top - 32) / 2,
+                   g_cardIcons[idx], 32, 32, 0, nullptr, DI_NORMAL);
+
+    SetBkMode(hdc, TRANSPARENT);
+    RECT line = rc; line.left += 60; line.right -= 12;
+    line.top += 10; line.bottom = line.top + 22;
+    SelectObject(hdc, g_fontCard ? g_fontCard : (HFONT)GetStockObject(DEFAULT_GUI_FONT));
+    SetTextColor(hdc, RGB(20, 20, 24));
+    std::wstring title = d.path + (d.isPhysical ? L"   (whole disk)" : L"");
+    DrawTextW(hdc, title.c_str(), -1, &line, DT_LEFT | DT_SINGLELINE | DT_VCENTER);
+
+    RECT sub = rc; sub.left += 60; sub.right -= 12;
+    sub.top += 34; sub.bottom = sub.top + 18;
+    SelectObject(hdc, g_fontCardSub ? g_fontCardSub : (HFONT)GetStockObject(DEFAULT_GUI_FONT));
+    SetTextColor(hdc, RGB(110, 110, 116));
+    std::wstring detail = d.model + L"      " + HumanSize(d.sizeBytes);
+    DrawTextW(hdc, detail.c_str(), -1, &sub, DT_LEFT | DT_SINGLELINE | DT_VCENTER);
 }
 
 void ShowPage(int page) {
@@ -447,7 +518,7 @@ void ShowPage(int page) {
     for (HWND h : g_cards) ShowWindow(h, s1);
 
     HWND p2[] = {g_back, g_stop, g_progress, g_status, g_tree, g_filter,
-                 g_list, g_btnRecover, g_btnRecoverAll, g_btnPreview};
+                 g_list, g_btnRecover, g_btnRecoverAll, g_preview};
     for (HWND h : p2) ShowWindow(h, s2);
 
     if (page == 1) BuildLocationCards();
@@ -462,6 +533,7 @@ void StartScanForDisk(int diskIndex) {
     // reset state
     { std::lock_guard<std::mutex> lk(g_resultsMutex); g_results.clear(); }
     ListView_DeleteAllItems(g_list);
+    ClearPreviewPane(g_preview);
     g_activeDevicePath = info.path;
     g_cancel.store(false);
     g_running.store(true);
@@ -477,6 +549,11 @@ void StartScanForDisk(int diskIndex) {
 }
 
 // --- controls -----------------------------------------------------------
+
+BOOL CALLBACK SetFontCb(HWND h, LPARAM f) {
+    SendMessageW(h, WM_SETFONT, (WPARAM)f, TRUE);
+    return TRUE;
+}
 
 void CreateControls(HWND hwnd) {
     // ---- Page 1 ----
@@ -502,7 +579,7 @@ void CreateControls(HWND hwnd) {
 
     g_tree = CreateWindowW(WC_TREEVIEWW, L"",
         WS_CHILD | WS_BORDER | TVS_HASLINES | TVS_LINESATROOT | TVS_SHOWSELALWAYS,
-        10, 84, 180, 410, hwnd, (HMENU)IDC_TREE, nullptr, nullptr);
+        10, 84, 160, 402, hwnd, (HMENU)IDC_TREE, nullptr, nullptr);
     struct { const wchar_t* t; Category c; } cats[] = {
         {L"All files", CAT_ALL}, {L"Photos", CAT_PHOTO}, {L"Videos", CAT_VIDEO},
         {L"Documents", CAT_DOC}, {L"Audio", CAT_AUDIO}, {L"Archives", CAT_ARCHIVE},
@@ -518,32 +595,34 @@ void CreateControls(HWND hwnd) {
     }
 
     g_filter = CreateWindowW(L"EDIT", L"",
-        WS_CHILD | WS_BORDER | ES_AUTOHSCROLL, 200, 84, 670, 24, hwnd,
+        WS_CHILD | WS_BORDER | ES_AUTOHSCROLL, 178, 84, 440, 24, hwnd,
         (HMENU)IDC_FILTER, nullptr, nullptr);
     SendMessageW(g_filter, EM_SETCUEBANNER, TRUE, (LPARAM)L"Search by name...");
 
     g_list = CreateWindowW(WC_LISTVIEWW, L"",
-        WS_CHILD | LVS_REPORT | WS_BORDER, 200, 114, 670, 372, hwnd,
+        WS_CHILD | LVS_REPORT | WS_BORDER, 178, 112, 440, 374, hwnd,
         (HMENU)IDC_LIST, nullptr, nullptr);
     ListView_SetExtendedListViewStyle(g_list,
         LVS_EX_FULLROWSELECT | LVS_EX_GRIDLINES);
     LVCOLUMNW col{};
     col.mask = LVCF_TEXT | LVCF_WIDTH | LVCF_SUBITEM;
     struct { const wchar_t* t; int w; } cols[] = {
-        {L"Name", 320}, {L"Size", 90}, {L"Method", 90}, {L"Source", 160}};
+        {L"Name", 210}, {L"Size", 80}, {L"Method", 70}, {L"Source", 130}};
     for (int i = 0; i < 4; ++i) {
         col.iSubItem = i; col.cx = cols[i].w;
         col.pszText = const_cast<wchar_t*>(cols[i].t);
         ListView_InsertColumn(g_list, i, &col);
     }
 
+    // Inline preview pane on the right.
+    g_preview = CreatePreviewPane(hwnd, 628, 84, 242, 402,
+        (HINSTANCE)GetWindowLongPtr(hwnd, GWLP_HINSTANCE));
+
     g_btnRecover = CreateWindowW(L"BUTTON", L"Recover Selected...",
-        WS_CHILD | BS_DEFPUSHBUTTON, 200, 498, 170, 34, hwnd,
+        WS_CHILD | BS_DEFPUSHBUTTON, 178, 498, 180, 34, hwnd,
         (HMENU)IDC_RECOVER, nullptr, nullptr);
     g_btnRecoverAll = CreateWindowW(L"BUTTON", L"Recover All Shown",
-        WS_CHILD, 380, 498, 150, 34, hwnd, (HMENU)IDC_RECOVERALL, nullptr, nullptr);
-    g_btnPreview = CreateWindowW(L"BUTTON", L"Preview",
-        WS_CHILD, 540, 498, 100, 34, hwnd, (HMENU)IDC_PREVIEW, nullptr, nullptr);
+        WS_CHILD, 368, 498, 150, 34, hwnd, (HMENU)IDC_RECOVERALL, nullptr, nullptr);
 }
 
 LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
@@ -557,9 +636,30 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
         AppendMenuW(fileMenu, MF_STRING, IDM_EXIT, L"E&xit");
         AppendMenuW(bar, MF_POPUP, (UINT_PTR)fileMenu, L"&File");
         SetMenu(hwnd, bar);
+
+        g_font = MakeFont(15, FW_NORMAL);
+        g_fontTitle = MakeFont(22, FW_SEMIBOLD);
+        g_fontCard = MakeFont(17, FW_SEMIBOLD);
+        g_fontCardSub = MakeFont(14, FW_NORMAL);
+
         CreateControls(hwnd);
+        EnumChildWindows(hwnd, SetFontCb, (LPARAM)g_font);
+        SendMessageW(g_title, WM_SETFONT, (WPARAM)g_fontTitle, TRUE);
         ShowPage(1);
         return 0;
+    }
+
+    case WM_DRAWITEM: {
+        auto* di = reinterpret_cast<LPDRAWITEMSTRUCT>(lParam);
+        if (di->CtlID >= IDC_CARD_BASE) { DrawCard(di); return TRUE; }
+        return FALSE;
+    }
+
+    case WM_CTLCOLORSTATIC: {
+        HDC dc = (HDC)wParam;
+        SetBkColor(dc, RGB(255, 255, 255));
+        SetBkMode(dc, TRANSPARENT);
+        return (LRESULT)GetStockObject(WHITE_BRUSH);
     }
 
     case WM_COMMAND: {
@@ -597,6 +697,22 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
         }
         if (nm->idFrom == IDC_LIST && nm->code == LVN_COLUMNCLICK) {
             SortByColumn(reinterpret_cast<LPNMLISTVIEW>(lParam)->iSubItem);
+            return 0;
+        }
+        if (nm->idFrom == IDC_LIST && nm->code == LVN_ITEMCHANGED) {
+            auto* lv = reinterpret_cast<LPNMLISTVIEW>(lParam);
+            if ((lv->uChanged & LVIF_STATE) && (lv->uNewState & LVIS_SELECTED)) {
+                int idx = static_cast<int>(lv->lParam);
+                RecoveredFile rf;
+                bool ok = false;
+                {
+                    std::lock_guard<std::mutex> lk(g_resultsMutex);
+                    if (idx >= 0 && idx < (int)g_results.size()) {
+                        rf = g_results[idx]; ok = true;
+                    }
+                }
+                if (ok) UpdatePreviewPane(g_preview, g_activeDevicePath, rf);
+            }
             return 0;
         }
         if (nm->idFrom == IDC_TREE && nm->code == TVN_SELCHANGEDW) {

@@ -13,3 +13,10 @@ void PreviewShutdown();
 // hex/text dump of the leading bytes.
 void ShowPreview(HWND owner, const std::wstring& devicePath,
                  const RecoveredFile& file);
+
+// Inline preview pane embedded inside the main window.
+HWND CreatePreviewPane(HWND parent, int x, int y, int w, int h,
+                       HINSTANCE inst);
+void UpdatePreviewPane(HWND pane, const std::wstring& devicePath,
+                       const RecoveredFile& file);
+void ClearPreviewPane(HWND pane);

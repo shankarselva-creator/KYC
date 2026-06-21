@@ -38,7 +38,9 @@ The app follows a simple two-step, wizard-style flow:
 3. The scan runs with a live progress bar and **ETA**; press **Stop** anytime.
 4. **Review results** — use the category sidebar (All / Photos / Videos /
    Documents / Audio / Archives / Other), the **search** box, or click a column
-   header to sort. Double-click or click **Preview** to inspect a file.
+   header to sort. Selecting a file shows it in the **inline preview pane** on
+   the right (image thumbnail or hex for binaries); double-click for a full-size
+   preview window.
 5. Select files and click **Recover Selected...**, or **Recover All Shown**, then
    choose an output folder **on a different drive**.
 
