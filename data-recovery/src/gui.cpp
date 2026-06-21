@@ -14,6 +14,7 @@
 #include <mutex>
 #include <vector>
 #include <string>
+#include <cwctype>
 
 #pragma comment(lib, "comctl32.lib")
 #pragma comment(lib, "shell32.lib")
@@ -30,7 +31,9 @@ enum {
     IDC_PARTITIONS,
     IDC_PREVIEW,
     IDC_RECOVER,
+    IDC_RECOVERALL,
     IDC_CANCEL,
+    IDC_FILTER,
     IDC_LIST,
     IDC_PROGRESS,
     IDC_STATUS,
@@ -43,17 +46,37 @@ constexpr UINT WM_APP_ADD      = WM_APP + 1; // wParam = result index
 constexpr UINT WM_APP_PROGRESS = WM_APP + 2; // wParam = pct, lParam = wstring*
 constexpr UINT WM_APP_DONE     = WM_APP + 3;
 
-HWND g_main = nullptr, g_combo, g_list, g_progress, g_status;
+HWND g_main = nullptr, g_combo, g_list, g_progress, g_status, g_filter;
 HWND g_btnUndelete, g_btnCarve, g_btnPartitions, g_btnRecover, g_btnRefresh,
-     g_btnPreview, g_btnCancel;
+     g_btnPreview, g_btnCancel, g_btnRecoverAll;
 
 std::wstring               g_activeDevicePath; // device the results belong to
+std::wstring               g_filterText;       // current lowercase filter
 std::vector<DiskInfo>      g_disks;
 std::vector<RecoveredFile> g_results;
 std::mutex                 g_resultsMutex;
 std::atomic<bool>          g_cancel{false};
 std::atomic<bool>          g_running{false};
 std::thread                g_worker;
+ULONGLONG                  g_scanStart = 0;    // GetTickCount64 at scan start
+
+std::wstring ToLower(std::wstring s) {
+    for (wchar_t& c : s)
+        c = static_cast<wchar_t>(towlower(c));
+    return s;
+}
+
+std::wstring FormatDuration(uint64_t seconds) {
+    uint64_t m = seconds / 60, s = seconds % 60;
+    wchar_t buf[32];
+    if (m >= 60) {
+        uint64_t h = m / 60; m %= 60;
+        swprintf(buf, 32, L"%lluh%02llum", h, m);
+    } else {
+        swprintf(buf, 32, L"%llum%02llus", m, s);
+    }
+    return buf;
+}
 
 std::wstring HumanSize(uint64_t bytes) {
     const wchar_t* units[] = {L"B", L"KB", L"MB", L"GB", L"TB"};
@@ -72,6 +95,7 @@ void EnableScanButtons(bool enable) {
     EnableWindow(g_btnCarve, enable);
     EnableWindow(g_btnPartitions, enable);
     EnableWindow(g_btnRecover, enable);
+    EnableWindow(g_btnRecoverAll, enable);
     EnableWindow(g_btnPreview, enable);
     EnableWindow(g_btnRefresh, enable);
     EnableWindow(g_combo, enable);
@@ -108,8 +132,16 @@ void ClearResults() {
     g_results.clear();
 }
 
-// Posted from the worker thread for each discovered file.
-void OnAddResult(int index) {
+bool MatchesFilter(const RecoveredFile& rf) {
+    if (g_filterText.empty())
+        return true;
+    return ToLower(rf.name).find(g_filterText) != std::wstring::npos ||
+           ToLower(rf.source).find(g_filterText) != std::wstring::npos;
+}
+
+// Insert one result (by index into g_results) into the list view, honoring the
+// active filter.
+void AddRow(int index) {
     RecoveredFile rf;
     {
         std::lock_guard<std::mutex> lk(g_resultsMutex);
@@ -117,6 +149,9 @@ void OnAddResult(int index) {
             return;
         rf = g_results[index];
     }
+    if (!MatchesFilter(rf))
+        return;
+
     LVITEMW it{};
     it.mask = LVIF_TEXT | LVIF_PARAM;
     it.iItem = ListView_GetItemCount(g_list);
@@ -133,6 +168,29 @@ void OnAddResult(int index) {
     ListView_SetItemText(g_list, row, 2, const_cast<wchar_t*>(method));
     ListView_SetItemText(g_list, row, 3,
                          const_cast<wchar_t*>(rf.source.c_str()));
+}
+
+// Posted from the worker thread for each discovered file.
+void OnAddResult(int index) { AddRow(index); }
+
+// Re-apply the current filter to all results.
+void RebuildList() {
+    g_filterText = ToLower(g_filterText);
+    ListView_DeleteAllItems(g_list);
+    int n;
+    {
+        std::lock_guard<std::mutex> lk(g_resultsMutex);
+        n = static_cast<int>(g_results.size());
+    }
+    for (int i = 0; i < n; ++i)
+        AddRow(i);
+}
+
+void OnFilterChanged() {
+    wchar_t buf[256];
+    GetWindowTextW(g_filter, buf, 256);
+    g_filterText = ToLower(buf);
+    RebuildList();
 }
 
 // Marshal a result discovered on the worker thread to the UI thread.
@@ -233,6 +291,7 @@ void StartScan(int mode) { // 0 = undelete, 1 = carve, 2 = partitions
     ClearResults();
     g_cancel.store(false);
     g_running.store(true);
+    g_scanStart = GetTickCount64();
     EnableScanButtons(false);
     DiskInfo info = g_disks[sel];
     g_activeDevicePath = info.path;
@@ -257,10 +316,10 @@ std::wstring PickFolder(HWND owner) {
     return path;
 }
 
-void RecoverSelected() {
-    int count = ListView_GetSelectedCount(g_list);
-    if (count == 0) {
-        SetStatus(L"Select one or more files in the list first.");
+// Recover a set of result indices to a user-chosen folder.
+void RecoverIndices(const std::vector<int>& indices) {
+    if (indices.empty()) {
+        SetStatus(L"Nothing to recover.");
         return;
     }
     std::wstring device = ActiveDevice();
@@ -276,15 +335,8 @@ void RecoverSelected() {
         return;
     }
 
-    int ok = 0, fail = 0;
-    int item = -1;
-    while ((item = ListView_GetNextItem(g_list, item, LVNI_SELECTED)) != -1) {
-        LVITEMW q{};
-        q.mask = LVIF_PARAM;
-        q.iItem = item;
-        ListView_GetItem(g_list, &q);
-        int idx = static_cast<int>(q.lParam);
-
+    int ok = 0, fail = 0, dup = 0;
+    for (int idx : indices) {
         RecoveredFile rf;
         {
             std::lock_guard<std::mutex> lk(g_resultsMutex);
@@ -296,13 +348,52 @@ void RecoverSelected() {
             !rf.resident && rf.source.find(L'/') != std::wstring::npos) {
             continue; // partition pseudo-entry, not a recoverable file
         }
-        std::wstring out = folder + L"\\" + SanitizeFileName(rf.name);
+        // Avoid clobbering identical names: prefix with the result index.
+        wchar_t prefix[16];
+        swprintf(prefix, 16, L"%05d_", idx);
+        std::wstring out = folder + L"\\" + prefix + SanitizeFileName(rf.name);
         if (RecoverFile(disk, rf, out) >= 0) ++ok; else ++fail;
     }
-    wchar_t msg[128];
-    swprintf(msg, 128, L"Recovered %d file(s), %d failed -> %s", ok, fail,
+    (void)dup;
+    wchar_t msg[160];
+    swprintf(msg, 160, L"Recovered %d file(s), %d failed -> %s", ok, fail,
              folder.c_str());
     SetStatus(msg);
+}
+
+void RecoverSelected() {
+    if (ListView_GetSelectedCount(g_list) == 0) {
+        SetStatus(L"Select one or more files in the list first.");
+        return;
+    }
+    std::vector<int> indices;
+    int item = -1;
+    while ((item = ListView_GetNextItem(g_list, item, LVNI_SELECTED)) != -1) {
+        LVITEMW q{};
+        q.mask = LVIF_PARAM;
+        q.iItem = item;
+        ListView_GetItem(g_list, &q);
+        indices.push_back(static_cast<int>(q.lParam));
+    }
+    RecoverIndices(indices);
+}
+
+// Recover everything currently shown in the list (i.e. matching the filter).
+void RecoverAll() {
+    int n = ListView_GetItemCount(g_list);
+    if (n == 0) {
+        SetStatus(L"No files to recover.");
+        return;
+    }
+    std::vector<int> indices;
+    for (int i = 0; i < n; ++i) {
+        LVITEMW q{};
+        q.mask = LVIF_PARAM;
+        q.iItem = i;
+        ListView_GetItem(g_list, &q);
+        indices.push_back(static_cast<int>(q.lParam));
+    }
+    RecoverIndices(indices);
 }
 
 void PreviewSelected() {
@@ -429,9 +520,19 @@ void CreateControls(HWND hwnd) {
         nullptr, nullptr);
     EnableWindow(g_btnCancel, FALSE);
 
+    // Filter row.
+    CreateWindowW(L"STATIC", L"Filter:", WS_CHILD | WS_VISIBLE,
+        10, 86, 42, 20, hwnd, nullptr, nullptr, nullptr);
+    g_filter = CreateWindowW(L"EDIT", L"",
+        WS_CHILD | WS_VISIBLE | WS_BORDER | ES_AUTOHSCROLL,
+        54, 82, 360, 24, hwnd, (HMENU)IDC_FILTER, nullptr, nullptr);
+    g_btnRecoverAll = CreateWindowW(L"BUTTON", L"Recover All",
+        WS_CHILD | WS_VISIBLE, 540, 81, 130, 26, hwnd, (HMENU)IDC_RECOVERALL,
+        nullptr, nullptr);
+
     g_list = CreateWindowW(WC_LISTVIEWW, L"",
         WS_CHILD | WS_VISIBLE | LVS_REPORT | WS_BORDER,
-        10, 86, 660, 380, hwnd, (HMENU)IDC_LIST, nullptr, nullptr);
+        10, 114, 660, 348, hwnd, (HMENU)IDC_LIST, nullptr, nullptr);
     ListView_SetExtendedListViewStyle(g_list,
         LVS_EX_FULLROWSELECT | LVS_EX_GRIDLINES);
 
@@ -447,13 +548,13 @@ void CreateControls(HWND hwnd) {
     }
 
     g_progress = CreateWindowW(PROGRESS_CLASSW, L"",
-        WS_CHILD | WS_VISIBLE, 10, 476, 660, 18, hwnd, (HMENU)IDC_PROGRESS,
+        WS_CHILD | WS_VISIBLE, 10, 470, 660, 18, hwnd, (HMENU)IDC_PROGRESS,
         nullptr, nullptr);
     SendMessageW(g_progress, PBM_SETRANGE, 0, MAKELPARAM(0, 100));
 
     g_status = CreateWindowW(L"STATIC", L"Ready. Run as Administrator for raw "
         L"disk access.", WS_CHILD | WS_VISIBLE,
-        10, 500, 660, 20, hwnd, (HMENU)IDC_STATUS, nullptr, nullptr);
+        10, 494, 660, 20, hwnd, (HMENU)IDC_STATUS, nullptr, nullptr);
 }
 
 LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
@@ -480,7 +581,11 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
         case IDC_PARTITIONS: StartScan(2); return 0;
         case IDC_PREVIEW:    PreviewSelected(); return 0;
         case IDC_RECOVER:    RecoverSelected(); return 0;
+        case IDC_RECOVERALL: RecoverAll(); return 0;
         case IDC_CANCEL:     OnCancel(); return 0;
+        case IDC_FILTER:
+            if (HIWORD(wParam) == EN_CHANGE) OnFilterChanged();
+            return 0;
         case IDM_SAVE:       SaveResultsCmd(); return 0;
         case IDM_LOAD:       LoadResultsCmd(); return 0;
         case IDM_EXIT:       SendMessageW(hwnd, WM_CLOSE, 0, 0); return 0;
@@ -501,9 +606,26 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
         return 0;
 
     case WM_APP_PROGRESS: {
+        int pct = static_cast<int>(wParam);
         SendMessageW(g_progress, PBM_SETPOS, wParam, 0);
         auto* s = reinterpret_cast<std::wstring*>(lParam);
-        if (s) { SetStatus(*s); delete s; }
+        if (s) {
+            std::wstring text = *s;
+            delete s;
+            if (g_running.load() && g_scanStart) {
+                uint64_t elapsed = (GetTickCount64() - g_scanStart) / 1000;
+                std::wstring suffix = L"  [" + FormatDuration(elapsed);
+                if (pct > 0 && pct < 100) {
+                    uint64_t eta = elapsed * (100 - pct) / pct;
+                    suffix += L" elapsed, ~" + FormatDuration(eta) + L" left";
+                } else {
+                    suffix += L" elapsed";
+                }
+                suffix += L"]";
+                text += suffix;
+            }
+            SetStatus(text);
+        }
         return 0;
     }
 
