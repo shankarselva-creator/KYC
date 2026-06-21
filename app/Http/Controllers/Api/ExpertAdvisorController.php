@@ -51,6 +51,9 @@ class ExpertAdvisorController extends Controller
             'timeframe' => ['required', 'in:'.implode(',', array_keys(CandleService::TIMEFRAMES))],
             'volume'    => ['required', 'numeric', 'min:0.01', 'max:100'],
             'params'    => ['nullable', 'array'],
+            'stop_loss_pips'   => ['nullable', 'integer', 'min:0', 'max:100000'],
+            'take_profit_pips' => ['nullable', 'integer', 'min:0', 'max:100000'],
+            'max_positions'    => ['nullable', 'integer', 'min:1', 'max:50'],
         ]);
 
         if (! $this->registry->has($validated['strategy'])) {
@@ -76,6 +79,9 @@ class ExpertAdvisorController extends Controller
             'timeframe'          => $validated['timeframe'],
             'volume'             => (float) $validated['volume'],
             'params'             => $params,
+            'stop_loss_pips'     => $validated['stop_loss_pips'] ?? null,
+            'take_profit_pips'   => $validated['take_profit_pips'] ?? null,
+            'max_positions'      => $validated['max_positions'] ?? 1,
             'magic'              => random_int(1_000_000, 9_999_999),
             'is_active'          => true,
         ]);
@@ -117,6 +123,9 @@ class ExpertAdvisorController extends Controller
             'timeframe'  => $ea->timeframe,
             'volume'     => $ea->volume,
             'params'     => $ea->params,
+            'stop_loss_pips'   => $ea->stop_loss_pips,
+            'take_profit_pips' => $ea->take_profit_pips,
+            'max_positions'    => $ea->max_positions,
             'magic'      => $ea->magic,
             'is_active'  => $ea->is_active,
             'open_count' => $ea->open_positions_count ?? $ea->positions()->where('status', 'open')->count(),

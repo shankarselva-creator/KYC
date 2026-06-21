@@ -3,6 +3,7 @@
 namespace App\Services\Experts;
 
 use App\Services\Experts\Strategies\BollingerBreakoutStrategy;
+use App\Services\Experts\Strategies\MacdCrossStrategy;
 use App\Services\Experts\Strategies\MovingAverageCrossStrategy;
 use App\Services\Experts\Strategies\RsiReversionStrategy;
 
@@ -17,6 +18,7 @@ class StrategyRegistry
             new MovingAverageCrossStrategy(),
             new RsiReversionStrategy(),
             new BollingerBreakoutStrategy(),
+            new MacdCrossStrategy(),
         ] as $strategy) {
             $this->strategies[$strategy->key()] = $strategy;
         }

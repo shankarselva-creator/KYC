@@ -422,6 +422,20 @@
                         </div>
                     </div>
                     <div id="ea-params" class="grid grid-cols-3 gap-3"></div>
+                    <div class="grid grid-cols-3 gap-3">
+                        <div>
+                            <label class="block text-xs text-gray-400 mb-1">Stop Loss (pips)</label>
+                            <input id="ea-sl" type="number" min="0" step="1" placeholder="off" class="w-full bg-panel border border-edge rounded-md px-2 py-1.5 text-sm focus:outline-none focus:border-accent tabular-nums">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-400 mb-1">Take Profit (pips)</label>
+                            <input id="ea-tp" type="number" min="0" step="1" placeholder="off" class="w-full bg-panel border border-edge rounded-md px-2 py-1.5 text-sm focus:outline-none focus:border-accent tabular-nums">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-400 mb-1">Max positions</label>
+                            <input id="ea-max" type="number" min="1" max="50" step="1" value="1" class="w-full bg-panel border border-edge rounded-md px-2 py-1.5 text-sm focus:outline-none focus:border-accent tabular-nums">
+                        </div>
+                    </div>
                     <div id="experts-msg" class="text-xs min-h-[1rem]"></div>
                     <button id="ea-attach" class="w-full bg-accent hover:bg-blue-600 text-white font-semibold rounded-md py-2 text-sm">Attach &amp; run</button>
                     <p class="text-[11px] text-gray-500">Experts run on the server with the price feed (<code>quotes:poll</code>); actions appear in the Journal.</p>
@@ -1437,6 +1451,9 @@
             timeframe: document.getElementById('ea-timeframe').value,
             volume: parseFloat(document.getElementById('ea-volume').value),
             params,
+            stop_loss_pips: parseInt(document.getElementById('ea-sl').value) || null,
+            take_profit_pips: parseInt(document.getElementById('ea-tp').value) || null,
+            max_positions: parseInt(document.getElementById('ea-max').value) || 1,
         };
         const msg = document.getElementById('experts-msg');
         const { ok, json } = await api('{{ route('api.experts.store') }}', { method: 'POST', body: JSON.stringify(body) });

@@ -49,6 +49,63 @@ class Indicators
     }
 
     /**
+     * EMA series aligned to the input (null until the period is seeded).
+     *
+     * @return array<int, float|null>
+     */
+    public static function emaSeries(array $values, int $period): array
+    {
+        $out = [];
+        $k = 2 / ($period + 1);
+        $prev = null;
+        foreach ($values as $i => $v) {
+            if ($i < $period - 1) {
+                $out[] = null;
+            } elseif ($i === $period - 1) {
+                $prev = array_sum(array_slice($values, 0, $period)) / $period;
+                $out[] = $prev;
+            } else {
+                $prev = $v * $k + $prev * (1 - $k);
+                $out[] = $prev;
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * MACD: [macdNow, signalNow, macdPrev, signalPrev], or null if insufficient data.
+     *
+     * @return array{0: float, 1: float, 2: float, 3: float}|null
+     */
+    public static function macd(array $values, int $fast, int $slow, int $signal): ?array
+    {
+        if ($fast >= $slow || count($values) < $slow + $signal + 1) {
+            return null;
+        }
+
+        $ef = self::emaSeries($values, $fast);
+        $es = self::emaSeries($values, $slow);
+        $macdLine = [];
+        foreach ($values as $i => $_) {
+            if ($ef[$i] !== null && $es[$i] !== null) {
+                $macdLine[] = $ef[$i] - $es[$i];
+            }
+        }
+        if (count($macdLine) < $signal + 1) {
+            return null;
+        }
+
+        $sig = self::emaSeries($macdLine, $signal);
+        $n = count($macdLine);
+        if ($sig[$n - 1] === null || $sig[$n - 2] === null) {
+            return null;
+        }
+
+        return [$macdLine[$n - 1], $sig[$n - 1], $macdLine[$n - 2], $sig[$n - 2]];
+    }
+
+    /**
      * Bollinger Bands: [basis, upper, lower] for the last $period values.
      *
      * @return array{0: float, 1: float, 2: float}|null

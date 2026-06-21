@@ -69,10 +69,17 @@ class ExpertAdvisorRunner
                 continue;
             }
 
+            $openCount = $open->count();
             foreach ($actions as $action) {
                 $type = $action['type'] ?? null;
                 if ($type === 'open') {
-                    $opened += $this->openTrade($ea, $action) ? 1 : 0;
+                    if ($openCount >= max(1, $ea->max_positions)) {
+                        continue; // respect the EA's max open positions
+                    }
+                    if ($this->openTrade($ea, $action)) {
+                        $opened++;
+                        $openCount++;
+                    }
                 } elseif ($type === 'close_all') {
                     $closed += $this->closeTrades($ea, $open->pluck('id')->all());
                 } elseif ($type === 'close' && isset($action['position_id'])) {
@@ -91,12 +98,13 @@ class ExpertAdvisorRunner
      */
     private function openTrade(ExpertAdvisor $ea, array $action): bool
     {
+        [$sl, $tp] = $this->riskLevels($ea, $action);
         try {
             $this->trading->openPosition($ea->tradingAccount, $ea->instrument, $action['side'], $ea->volume, [
                 'expert_advisor_id' => $ea->id,
                 'magic'             => $ea->magic,
-                'stop_loss'         => $action['sl'] ?? null,
-                'take_profit'       => $action['tp'] ?? null,
+                'stop_loss'         => $sl,
+                'take_profit'       => $tp,
             ]);
             $this->journal->log($ea->tradingAccount, "EA {$ea->name}: opened {$action['side']} {$ea->volume} {$ea->instrument->symbol}", 'success', 'expert');
 
@@ -110,6 +118,34 @@ class ExpertAdvisorRunner
 
             return false;
         }
+    }
+
+    /**
+     * Resolve absolute SL/TP prices from the EA's pip settings (preferred) or
+     * the strategy action, relative to the current entry side.
+     *
+     * @param  array<string, mixed>  $action
+     * @return array{0: float|null, 1: float|null}
+     */
+    private function riskLevels(ExpertAdvisor $ea, array $action): array
+    {
+        $quote = $ea->instrument->quote;
+        $pip = $ea->instrument->pip_size;
+        $digits = $ea->instrument->digits;
+        $isBuy = $action['side'] === 'buy';
+        $entry = $isBuy ? $quote->ask : $quote->bid;
+
+        $sl = $action['sl'] ?? null;
+        if ($ea->stop_loss_pips) {
+            $sl = round($isBuy ? $entry - $ea->stop_loss_pips * $pip : $entry + $ea->stop_loss_pips * $pip, $digits);
+        }
+
+        $tp = $action['tp'] ?? null;
+        if ($ea->take_profit_pips) {
+            $tp = round($isBuy ? $entry + $ea->take_profit_pips * $pip : $entry - $ea->take_profit_pips * $pip, $digits);
+        }
+
+        return [$sl, $tp];
     }
 
     /**

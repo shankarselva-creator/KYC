@@ -93,12 +93,14 @@ app/
 ### Expert Advisors (automated strategies)
 
 - Built-in, parameterized strategies (no user-uploaded code) implementing the
-  `Strategy` interface: Moving Average Cross, RSI Reversion, Bollinger Breakout.
-  `StrategyRegistry` exposes them + their parameter schemas.
-- Users attach an EA to a symbol/timeframe with a lot size and params
+  `Strategy` interface: Moving Average Cross, RSI Reversion, Bollinger Breakout,
+  MACD Cross. `StrategyRegistry` exposes them + their parameter schemas.
+- Users attach an EA to a symbol/timeframe with a lot size, params, and risk
+  controls — Stop Loss / Take Profit (in pips) and max open positions
   (`expert_advisors` table). `ExpertAdvisorRunner` runs each active EA on every
   tick from `quotes:poll`: it builds a `StrategyContext` from recent candles,
-  asks the strategy for actions, and opens/closes via `TradingService`.
+  asks the strategy for actions, applies the pip SL/TP + position cap, and
+  opens/closes via `TradingService`.
 - EA trades are tagged (`positions.expert_advisor_id` + `magic`) so an EA only
   manages its own positions; actions are journaled under the `expert` category.
 
@@ -119,7 +121,7 @@ Order            ticket, account, instrument, type(buy/sell _limit/_stop), volum
                  sl, tp, status(pending|filled|cancelled|expired), position_id  (pending orders)
 Transaction      account, position, type, amount, balance_after   (ledger)
 ExpertAdvisor    account, instrument, strategy, timeframe, volume, params, magic,
-                 is_active, state   (attached automated strategy)
+                 stop_loss_pips, take_profit_pips, max_positions, is_active, state
 ```
 
 ---

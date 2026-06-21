@@ -10,18 +10,22 @@ class ExpertAdvisor extends Model
 {
     protected $fillable = [
         'trading_account_id', 'instrument_id', 'name', 'strategy', 'timeframe',
-        'volume', 'params', 'state', 'magic', 'is_active', 'last_run_at',
+        'volume', 'params', 'state', 'stop_loss_pips', 'take_profit_pips', 'max_positions',
+        'magic', 'is_active', 'last_run_at',
     ];
 
     protected function casts(): array
     {
         return [
-            'volume'      => 'float',
-            'params'      => 'array',
-            'state'       => 'array',
-            'magic'       => 'integer',
-            'is_active'   => 'boolean',
-            'last_run_at' => 'datetime',
+            'volume'           => 'float',
+            'params'           => 'array',
+            'state'            => 'array',
+            'stop_loss_pips'   => 'integer',
+            'take_profit_pips' => 'integer',
+            'max_positions'    => 'integer',
+            'magic'            => 'integer',
+            'is_active'        => 'boolean',
+            'last_run_at'      => 'datetime',
         ];
     }
 

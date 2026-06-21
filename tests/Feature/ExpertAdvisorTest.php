@@ -122,6 +122,47 @@ class ExpertAdvisorTest extends TestCase
         $this->assertSame(0, Position::count());
     }
 
+    public function test_runner_applies_pip_stop_loss_and_take_profit(): void
+    {
+        $ins = $this->instrument(1.20000);
+        $user = User::create(['name' => 'E', 'email' => 'e6@example.com', 'password' => bcrypt('x')]);
+        $account = app(AccountProvisioner::class)->createDemoAccount($user);
+
+        $closes = array_fill(0, 59, 1.10000);
+        $closes[] = 1.20000;
+        $this->seedCandles($ins, $closes);
+
+        $ea = ExpertAdvisor::create([
+            'trading_account_id' => $account->id, 'instrument_id' => $ins->id,
+            'name' => 'MA', 'strategy' => 'ma_cross', 'timeframe' => 'M5',
+            'volume' => 0.10, 'params' => ['fast' => 10, 'slow' => 30],
+            'stop_loss_pips' => 100, 'take_profit_pips' => 200, 'max_positions' => 1,
+            'magic' => 999, 'is_active' => true,
+        ]);
+
+        app(ExpertAdvisorRunner::class)->run();
+
+        $pos = Position::where('expert_advisor_id', $ea->id)->first();
+        $this->assertNotNull($pos);
+        // Buy filled at ask 1.20010: SL = ask - 100 pips, TP = ask + 200 pips.
+        $this->assertEqualsWithDelta(1.20010 - 0.0100, $pos->stop_loss, 0.00001);
+        $this->assertEqualsWithDelta(1.20010 + 0.0200, $pos->take_profit, 0.00001);
+    }
+
+    public function test_macd_cross_signals_buy(): void
+    {
+        // Flat baseline (macd ≈ signal ≈ 0) then a sharp jump on the last bar
+        // makes the MACD line cross above its signal line.
+        $closes = array_fill(0, 60, 1.10000);
+        $closes[] = 1.30000;
+        $ctx = new StrategyContext(new ExpertAdvisor(['strategy' => 'macd_cross']), ['fast' => 12, 'slow' => 26, 'signal' => 9], $closes, [], [], []);
+
+        $actions = (new \App\Services\Experts\Strategies\MacdCrossStrategy())->decide($ctx);
+
+        $this->assertNotEmpty($actions);
+        $this->assertSame('buy', end($actions)['side']);
+    }
+
     // ---- HTTP API ----
 
     public function test_strategies_catalog_endpoint(): void
