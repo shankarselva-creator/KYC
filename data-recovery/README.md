@@ -29,13 +29,20 @@ disks, SSDs and removable drives. It implements three recovery strategies:
 
 ## How to use
 
+The app follows a simple two-step, wizard-style flow:
+
 1. Launch `DataRecovery.exe` (accept the UAC prompt).
-2. Pick a physical disk or volume from the dropdown.
-3. Click **Undelete Scan** for recently deleted files, or **Deep Scan (Carve)**
-   for a thorough signature scan, or **Scan Partitions** to inspect layout.
-4. Select a file and click **Preview** (or double-click) to inspect it first.
-5. Select one or more files in the results list.
-6. Click **Recover Selected...** and choose an output folder (on another drive).
+2. **Select a location** — every drive and volume is shown as a large clickable
+   card (path, model, size). Tick **Deep scan** first if you want signature
+   carving in addition to the quick undelete pass. Click a card to start.
+3. The scan runs with a live progress bar and **ETA**; press **Stop** anytime.
+4. **Review results** — use the category sidebar (All / Photos / Videos /
+   Documents / Audio / Archives / Other), the **search** box, or click a column
+   header to sort. Double-click or click **Preview** to inspect a file.
+5. Select files and click **Recover Selected...**, or **Recover All Shown**, then
+   choose an output folder **on a different drive**.
+
+Use `File ▸ Save Results` / `Load Results` to keep a scan for later.
 
 ## Building
 
