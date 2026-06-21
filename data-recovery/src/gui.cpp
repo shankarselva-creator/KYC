@@ -59,6 +59,8 @@ std::atomic<bool>          g_cancel{false};
 std::atomic<bool>          g_running{false};
 std::thread                g_worker;
 ULONGLONG                  g_scanStart = 0;    // GetTickCount64 at scan start
+int                        g_sortCol = -1;     // column being sorted
+bool                       g_sortAsc = true;
 
 std::wstring ToLower(std::wstring s) {
     for (wchar_t& c : s)
@@ -191,6 +193,38 @@ void OnFilterChanged() {
     GetWindowTextW(g_filter, buf, 256);
     g_filterText = ToLower(buf);
     RebuildList();
+}
+
+// Sort comparator: l1/l2 are item lParams (indices into g_results).
+int CALLBACK CompareResults(LPARAM l1, LPARAM l2, LPARAM) {
+    RecoveredFile a, b;
+    {
+        std::lock_guard<std::mutex> lk(g_resultsMutex);
+        int i1 = static_cast<int>(l1), i2 = static_cast<int>(l2);
+        int n = static_cast<int>(g_results.size());
+        if (i1 < 0 || i1 >= n || i2 < 0 || i2 >= n)
+            return 0;
+        a = g_results[i1];
+        b = g_results[i2];
+    }
+    int cmp = 0;
+    switch (g_sortCol) {
+        case 1: cmp = (a.size < b.size) ? -1 : (a.size > b.size) ? 1 : 0; break;
+        case 2: cmp = static_cast<int>(a.method) - static_cast<int>(b.method); break;
+        case 3: cmp = _wcsicmp(a.source.c_str(), b.source.c_str()); break;
+        default: cmp = _wcsicmp(a.name.c_str(), b.name.c_str()); break;
+    }
+    return g_sortAsc ? cmp : -cmp;
+}
+
+void SortByColumn(int col) {
+    if (g_sortCol == col)
+        g_sortAsc = !g_sortAsc;     // toggle direction on repeat click
+    else {
+        g_sortCol = col;
+        g_sortAsc = true;
+    }
+    ListView_SortItems(g_list, CompareResults, 0);
 }
 
 // Marshal a result discovered on the worker thread to the UI thread.
@@ -596,6 +630,11 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
         auto* nm = reinterpret_cast<LPNMHDR>(lParam);
         if (nm->idFrom == IDC_LIST && nm->code == NM_DBLCLK) {
             PreviewSelected();
+            return 0;
+        }
+        if (nm->idFrom == IDC_LIST && nm->code == LVN_COLUMNCLICK) {
+            auto* lv = reinterpret_cast<LPNMLISTVIEW>(lParam);
+            SortByColumn(lv->iSubItem);
             return 0;
         }
         return 0;

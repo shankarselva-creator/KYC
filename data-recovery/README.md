@@ -6,13 +6,14 @@ disks, SSDs and removable drives. It implements three recovery strategies:
 | Mode | What it does |
 |------|--------------|
 | **Undelete Scan** | Auto-detects the filesystem and recovers deleted files. **NTFS**: parses the `$MFT` and decodes data runs. **FAT12/16/32** and **exFAT**: walks directory entries for deleted records and recovers them assuming contiguous allocation. Best right after accidental deletion. |
-| **Deep Scan (Carve)** | Streams raw sectors and reconstructs files by their signatures (JPG, PNG, GIF, PDF, ZIP/Office, RAR, GZIP, MP3, legacy DOC). Works even when the filesystem is gone or formatted. |
+| **Deep Scan (Carve)** | Streams raw sectors and reconstructs files by their signatures: JPG, PNG, GIF, BMP, TIFF, PDF, ZIP/Office, RAR, 7z, GZIP, MP3, legacy DOC, SQLite, MP4/MOV, WAV, AVI (wildcard matching handles container formats). Works even when the filesystem is gone or formatted. |
 | **Scan Partitions** | Reads the MBR / GPT partition tables and lists partitions (start offset, size, type) — useful for diagnosing lost partitions. |
 | **Preview** | Select a result and click **Preview** (or double-click it) to see it before recovering: image thumbnail for JPG/PNG/GIF/BMP (via GDI+), or a hex/text dump for anything else. |
 | **Cancel** | Stop a long-running scan at any time with the **Cancel** button. |
 | **Filter** | Type in the **Filter** box to narrow the results list by name, method or source (case-insensitive). |
 | **Recover All** | Recover every file currently shown (i.e. matching the filter) in one click, instead of selecting them by hand. |
 | **Progress + ETA** | The status line shows elapsed time and an estimated time remaining during scans. |
+| **Sortable columns** | Click any results-list column header (Name / Size / Method / Source) to sort; click again to reverse. |
 | **Save / Load results** | `File ▸ Save Results...` writes the current scan to a `.drsv` file; `File ▸ Load Results...` restores it later so you can recover without rescanning. |
 
 > ⚠️ **Read-only by design.** The tool opens disks for reading only and writes
