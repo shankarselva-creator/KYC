@@ -1,0 +1,126 @@
+<?php
+
+namespace App\Http\Controllers\Api;
+
+use App\Http\Controllers\Concerns\ApiResponses;
+use App\Http\Controllers\Concerns\ResolvesTradingAccount;
+use App\Http\Controllers\Controller;
+use App\Models\ExpertAdvisor;
+use App\Models\Instrument;
+use App\Services\Experts\StrategyRegistry;
+use App\Services\MarketData\CandleService;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+
+class ExpertAdvisorController extends Controller
+{
+    use ApiResponses;
+    use ResolvesTradingAccount;
+
+    public function __construct(private readonly StrategyRegistry $registry)
+    {
+    }
+
+    /** Catalog of available strategies + their parameter schemas. */
+    public function strategies(): JsonResponse
+    {
+        return $this->ok($this->registry->catalog());
+    }
+
+    public function index(Request $request): JsonResponse
+    {
+        $account = $this->activeAccount($request);
+
+        $eas = ExpertAdvisor::where('trading_account_id', $account->id)
+            ->with('instrument:id,symbol')
+            ->withCount(['positions as open_positions_count' => fn ($q) => $q->where('status', 'open')])
+            ->latest()
+            ->get()
+            ->map(fn (ExpertAdvisor $ea) => $this->present($ea));
+
+        return $this->ok($eas);
+    }
+
+    public function store(Request $request): JsonResponse
+    {
+        $account = $this->activeAccount($request);
+
+        $validated = $request->validate([
+            'strategy'  => ['required', 'string'],
+            'symbol'    => ['required', 'string', 'exists:instruments,symbol'],
+            'timeframe' => ['required', 'in:'.implode(',', array_keys(CandleService::TIMEFRAMES))],
+            'volume'    => ['required', 'numeric', 'min:0.01', 'max:100'],
+            'params'    => ['nullable', 'array'],
+        ]);
+
+        if (! $this->registry->has($validated['strategy'])) {
+            return $this->fail('UNKNOWN_STRATEGY', 'That strategy does not exist.', 422);
+        }
+
+        $instrument = Instrument::where('symbol', $validated['symbol'])->firstOrFail();
+        $strategy = $this->registry->get($validated['strategy']);
+
+        // Keep only known params, coerced to numbers, falling back to defaults.
+        $params = $this->registry->defaults($validated['strategy']);
+        foreach ($strategy->params() as $p) {
+            if (isset($validated['params'][$p['key']]) && is_numeric($validated['params'][$p['key']])) {
+                $params[$p['key']] = 0 + $validated['params'][$p['key']];
+            }
+        }
+
+        $ea = ExpertAdvisor::create([
+            'trading_account_id' => $account->id,
+            'instrument_id'      => $instrument->id,
+            'name'               => $strategy->label().' '.$instrument->symbol,
+            'strategy'           => $strategy->key(),
+            'timeframe'          => $validated['timeframe'],
+            'volume'             => (float) $validated['volume'],
+            'params'             => $params,
+            'magic'              => random_int(1_000_000, 9_999_999),
+            'is_active'          => true,
+        ]);
+
+        return $this->ok($this->present($ea->load('instrument:id,symbol')));
+    }
+
+    public function toggle(Request $request, ExpertAdvisor $expert): JsonResponse
+    {
+        $account = $this->activeAccount($request);
+        if ($expert->trading_account_id !== $account->id) {
+            return $this->fail('FORBIDDEN', 'This EA does not belong to your account.', 403);
+        }
+
+        $expert->update(['is_active' => ! $expert->is_active]);
+
+        return $this->ok($this->present($expert->load('instrument:id,symbol')));
+    }
+
+    public function destroy(Request $request, ExpertAdvisor $expert): JsonResponse
+    {
+        $account = $this->activeAccount($request);
+        if ($expert->trading_account_id !== $account->id) {
+            return $this->fail('FORBIDDEN', 'This EA does not belong to your account.', 403);
+        }
+
+        $expert->delete();
+
+        return $this->ok(['deleted' => true]);
+    }
+
+    private function present(ExpertAdvisor $ea): array
+    {
+        return [
+            'id'         => $ea->id,
+            'name'       => $ea->name,
+            'strategy'   => $ea->strategy,
+            'symbol'     => $ea->instrument->symbol,
+            'timeframe'  => $ea->timeframe,
+            'volume'     => $ea->volume,
+            'params'     => $ea->params,
+            'magic'      => $ea->magic,
+            'is_active'  => $ea->is_active,
+            'open_count' => $ea->open_positions_count ?? $ea->positions()->where('status', 'open')->count(),
+            'last_run_at' => $ea->last_run_at?->toIso8601String(),
+        ];
+    }
+}

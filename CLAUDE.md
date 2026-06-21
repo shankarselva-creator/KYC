@@ -43,7 +43,8 @@ app/
 ├── Models/                      # Instrument, Quote, TradingAccount, Position, Transaction, User
 └── Services/
     ├── MarketData/              # price feed: provider interface + drivers + QuoteService
-    └── Trading/                 # TradingService, CurrencyConverter, AccountProvisioner
+    ├── Trading/                 # TradingService, CurrencyConverter, AccountProvisioner
+    └── Experts/                 # Expert Advisors: Strategy interface + strategies + runner
 ```
 
 ### Market data (price feed)
@@ -89,6 +90,18 @@ app/
   trigger is reached and closes positions that hit SL/TP. Run from `quotes:poll`
   (after `QuoteService::refresh()`), so the loop/scheduler drives execution.
 
+### Expert Advisors (automated strategies)
+
+- Built-in, parameterized strategies (no user-uploaded code) implementing the
+  `Strategy` interface: Moving Average Cross, RSI Reversion, Bollinger Breakout.
+  `StrategyRegistry` exposes them + their parameter schemas.
+- Users attach an EA to a symbol/timeframe with a lot size and params
+  (`expert_advisors` table). `ExpertAdvisorRunner` runs each active EA on every
+  tick from `quotes:poll`: it builds a `StrategyContext` from recent candles,
+  asks the strategy for actions, and opens/closes via `TradingService`.
+- EA trades are tagged (`positions.expert_advisor_id` + `magic`) so an EA only
+  manages its own positions; actions are journaled under the `expert` category.
+
 ---
 
 ## Data Models
@@ -105,6 +118,8 @@ Position         ticket, account, instrument, side(buy|sell), volume, open/close
 Order            ticket, account, instrument, type(buy/sell _limit/_stop), volume, price,
                  sl, tp, status(pending|filled|cancelled|expired), position_id  (pending orders)
 Transaction      account, position, type, amount, balance_after   (ledger)
+ExpertAdvisor    account, instrument, strategy, timeframe, volume, params, magic,
+                 is_active, state   (attached automated strategy)
 ```
 
 ---
@@ -121,6 +136,11 @@ Transaction      account, position, type, amount, balance_after   (ledger)
 | POST | `/api/account/deposit` \| `/withdraw` | Adjust demo balance (withdraw capped at free margin) |
 | GET  | `/api/history` | Closed trades, ledger, and summary (Toolbox History tab) |
 | GET  | `/api/journal` | Persisted journal entries (trade/order/funding events) |
+| GET  | `/api/experts/strategies` | Available EA strategies + parameter schemas |
+| GET  | `/api/experts` | Attached Expert Advisors |
+| POST | `/api/experts` | Attach an EA (`strategy, symbol, timeframe, volume, params`) |
+| POST | `/api/experts/{expert}/toggle` | Pause / resume an EA |
+| DELETE | `/api/experts/{expert}` | Detach an EA |
 | GET  | `/api/positions` | Open positions with live P/L |
 | GET  | `/api/orders` | Pending orders (limit/stop) |
 | POST | `/api/orders` | Market order (`type=buy\|sell`) or pending (`type=*_limit\|*_stop, price`) |

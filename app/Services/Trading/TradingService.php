@@ -53,6 +53,8 @@ class TradingService
                 'ticket'             => $this->generateTicket(),
                 'trading_account_id' => $account->id,
                 'instrument_id'      => $instrument->id,
+                'expert_advisor_id'  => $options['expert_advisor_id'] ?? null,
+                'magic'              => $options['magic'] ?? null,
                 'side'               => $side,
                 'volume'             => $volume,
                 'open_price'         => $price,

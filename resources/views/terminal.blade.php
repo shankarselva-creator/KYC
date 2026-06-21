@@ -60,6 +60,8 @@
             <button id="ind-btn" class="px-2 py-1 rounded text-gray-300 hover:text-white hover:bg-panel2">Indicators ▾</button>
             <div id="ind-menu" class="hidden absolute z-40 mt-1 left-0 top-full bg-panel2 border border-edge rounded-md shadow-lg w-60 max-h-[72vh] overflow-auto"></div>
         </div>
+        <div class="w-px h-4 bg-edge mx-1"></div>
+        <button id="experts-btn" class="px-2 py-1 rounded text-gray-300 hover:text-white hover:bg-panel2">Experts</button>
     </div>
 
     <div class="flex-1 grid grid-cols-12 gap-px bg-edge overflow-hidden min-h-0">
@@ -359,6 +361,70 @@
                 <div class="grid grid-cols-2 gap-2">
                     <button id="funds-withdraw" class="bg-down hover:brightness-110 text-white font-semibold rounded-md py-2 text-sm">Withdraw</button>
                     <button id="funds-deposit" class="bg-up hover:brightness-110 text-white font-semibold rounded-md py-2 text-sm">Deposit</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {{-- Expert Advisors modal --}}
+    <div id="experts-modal" class="hidden fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+        <div class="bg-panel border border-edge rounded-xl w-full max-w-2xl max-h-[88vh] overflow-auto">
+            <div class="flex items-center justify-between px-4 py-3 border-b border-edge">
+                <div class="font-semibold text-white text-sm">Expert Advisors <span class="text-gray-500 font-normal">— automated strategies</span></div>
+                <button id="experts-close" class="text-gray-400 hover:text-white text-lg leading-none">✕</button>
+            </div>
+
+            <div class="p-4 space-y-4">
+                {{-- Attached EAs --}}
+                <div>
+                    <div class="text-xs uppercase tracking-wide text-gray-400 mb-1">Attached</div>
+                    <table class="w-full text-xs">
+                        <thead class="text-gray-500">
+                            <tr>
+                                <th class="text-left px-2 py-1 font-medium">Strategy</th>
+                                <th class="text-left px-2 py-1 font-medium">Symbol</th>
+                                <th class="text-left px-2 py-1 font-medium">TF</th>
+                                <th class="text-right px-2 py-1 font-medium">Lots</th>
+                                <th class="text-right px-2 py-1 font-medium">Open</th>
+                                <th class="text-center px-2 py-1 font-medium">Status</th>
+                                <th class="px-2 py-1"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="experts-list">
+                            <tr><td colspan="7" class="px-2 py-3 text-center text-gray-500">No experts attached</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                {{-- Attach new --}}
+                <div class="bg-panel2 border border-edge rounded-lg p-3 space-y-3">
+                    <div class="text-xs uppercase tracking-wide text-gray-400">Attach Expert</div>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs text-gray-400 mb-1">Strategy</label>
+                            <select id="ea-strategy" class="w-full bg-panel border border-edge rounded-md px-2 py-1.5 text-sm focus:outline-none focus:border-accent"></select>
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-400 mb-1">Symbol</label>
+                            <input id="ea-symbol" type="text" class="w-full bg-panel border border-edge rounded-md px-2 py-1.5 text-sm focus:outline-none focus:border-accent tabular-nums">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-400 mb-1">Timeframe</label>
+                            <select id="ea-timeframe" class="w-full bg-panel border border-edge rounded-md px-2 py-1.5 text-sm focus:outline-none focus:border-accent">
+                                @foreach (['M1','M5','M15','M30','H1','H4','D1','W1','MN'] as $tf)
+                                <option value="{{ $tf }}" {{ $tf === 'M5' ? 'selected' : '' }}>{{ $tf }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-400 mb-1">Volume (lots)</label>
+                            <input id="ea-volume" type="number" min="0.01" max="100" step="0.01" value="0.10" class="w-full bg-panel border border-edge rounded-md px-2 py-1.5 text-sm focus:outline-none focus:border-accent tabular-nums">
+                        </div>
+                    </div>
+                    <div id="ea-params" class="grid grid-cols-3 gap-3"></div>
+                    <div id="experts-msg" class="text-xs min-h-[1rem]"></div>
+                    <button id="ea-attach" class="w-full bg-accent hover:bg-blue-600 text-white font-semibold rounded-md py-2 text-sm">Attach &amp; run</button>
+                    <p class="text-[11px] text-gray-500">Experts run on the server with the price feed (<code>quotes:poll</code>); actions appear in the Journal.</p>
                 </div>
             </div>
         </div>
@@ -1310,6 +1376,90 @@
     }
     document.getElementById('funds-deposit').addEventListener('click', () => fund('deposit'));
     document.getElementById('funds-withdraw').addEventListener('click', () => fund('withdraw'));
+
+    // ---- Expert Advisors ----
+    let eaCatalog = [];
+    const STRAT_LABEL = {};
+    async function loadStrategies() {
+        if (eaCatalog.length) return;
+        const { ok, json } = await api('{{ route('api.experts.strategies') }}');
+        if (!ok) return;
+        eaCatalog = json.data;
+        const sel = document.getElementById('ea-strategy');
+        sel.innerHTML = eaCatalog.map(s => { STRAT_LABEL[s.key] = s.label; return `<option value="${s.key}">${s.label}</option>`; }).join('');
+        renderEaParams();
+    }
+    function renderEaParams() {
+        const key = document.getElementById('ea-strategy').value;
+        const strat = eaCatalog.find(s => s.key === key);
+        document.getElementById('ea-params').innerHTML = (strat?.params || []).map(p =>
+            `<div><label class="block text-xs text-gray-400 mb-1">${p.label}</label>
+             <input data-eap="${p.key}" type="number" step="any" value="${p.default}" class="w-full bg-panel border border-edge rounded-md px-2 py-1.5 text-sm focus:outline-none focus:border-accent tabular-nums"></div>`
+        ).join('');
+    }
+    async function openExperts() {
+        await loadStrategies();
+        document.getElementById('ea-symbol').value = selected || '';
+        document.getElementById('ea-timeframe').value = timeframe;
+        document.getElementById('experts-msg').textContent = '';
+        await loadExperts();
+        document.getElementById('experts-modal').classList.remove('hidden');
+    }
+    async function loadExperts() {
+        const { ok, json } = await api('{{ route('api.experts.index') }}');
+        if (!ok) return;
+        const tbody = document.getElementById('experts-list');
+        if (!json.data.length) { tbody.innerHTML = '<tr><td colspan="7" class="px-2 py-3 text-center text-gray-500">No experts attached</td></tr>'; return; }
+        tbody.innerHTML = json.data.map(e => {
+            const status = e.is_active
+                ? '<span class="text-up">● running</span>'
+                : '<span class="text-gray-500">paused</span>';
+            return `<tr class="border-t border-edge/50">
+                <td class="px-2 py-1.5">${STRAT_LABEL[e.strategy] || e.strategy}</td>
+                <td class="px-2 py-1.5 font-medium">${e.symbol}</td>
+                <td class="px-2 py-1.5">${e.timeframe}</td>
+                <td class="px-2 py-1.5 text-right tabular-nums">${fmt(e.volume)}</td>
+                <td class="px-2 py-1.5 text-right tabular-nums">${e.open_count}</td>
+                <td class="px-2 py-1.5 text-center">${status}</td>
+                <td class="px-2 py-1.5 text-right whitespace-nowrap">
+                    <button data-ea-toggle="${e.id}" class="text-gray-400 hover:text-accent mr-2">${e.is_active ? 'Pause' : 'Run'}</button>
+                    <button data-ea-remove="${e.id}" class="text-gray-400 hover:text-down">Remove</button>
+                </td>
+            </tr>`;
+        }).join('');
+    }
+    async function attachExpert() {
+        const params = {};
+        document.querySelectorAll('#ea-params [data-eap]').forEach(i => params[i.dataset.eap] = parseFloat(i.value));
+        const body = {
+            strategy: document.getElementById('ea-strategy').value,
+            symbol: document.getElementById('ea-symbol').value.trim().toUpperCase(),
+            timeframe: document.getElementById('ea-timeframe').value,
+            volume: parseFloat(document.getElementById('ea-volume').value),
+            params,
+        };
+        const msg = document.getElementById('experts-msg');
+        const { ok, json } = await api('{{ route('api.experts.store') }}', { method: 'POST', body: JSON.stringify(body) });
+        if (ok) {
+            msg.className = 'text-xs min-h-[1rem] text-up';
+            msg.textContent = `Attached ${STRAT_LABEL[json.data.strategy]} on ${json.data.symbol} (${json.data.timeframe})`;
+            journal(`Attached EA ${json.data.name}`, 'success');
+            loadExperts();
+        } else {
+            msg.className = 'text-xs min-h-[1rem] text-down';
+            msg.textContent = json.error?.message || (json.errors ? Object.values(json.errors)[0][0] : 'Failed to attach.');
+        }
+    }
+    document.getElementById('experts-btn').addEventListener('click', openExperts);
+    document.getElementById('experts-close').addEventListener('click', () => document.getElementById('experts-modal').classList.add('hidden'));
+    document.getElementById('experts-modal').addEventListener('click', e => { if (e.target.id === 'experts-modal') e.target.classList.add('hidden'); });
+    document.getElementById('ea-strategy').addEventListener('change', renderEaParams);
+    document.getElementById('ea-attach').addEventListener('click', attachExpert);
+    document.getElementById('experts-list').addEventListener('click', async e => {
+        const t = e.target.closest('[data-ea-toggle]'); const r = e.target.closest('[data-ea-remove]');
+        if (t) { await api(`/api/experts/${t.dataset.eaToggle}/toggle`, { method: 'POST' }); loadExperts(); }
+        else if (r) { await api(`/api/experts/${r.dataset.eaRemove}`, { method: 'DELETE' }); loadExperts(); }
+    });
 
     // Event wiring
     document.getElementById('watchlist').addEventListener('click', e => {

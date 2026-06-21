@@ -8,8 +8,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class Position extends Model
 {
     protected $fillable = [
-        'ticket', 'trading_account_id', 'instrument_id', 'side', 'volume',
-        'open_price', 'close_price', 'stop_loss', 'take_profit',
+        'ticket', 'trading_account_id', 'instrument_id', 'expert_advisor_id', 'magic',
+        'side', 'volume', 'open_price', 'close_price', 'stop_loss', 'take_profit',
         'commission', 'swap', 'profit', 'status', 'opened_at', 'closed_at',
     ];
 

@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\AccountController;
+use App\Http\Controllers\Api\ExpertAdvisorController;
 use App\Http\Controllers\Api\HistoryController;
 use App\Http\Controllers\Api\InstrumentController;
 use App\Http\Controllers\Api\JournalController;
@@ -46,6 +47,13 @@ Route::middleware('auth')->group(function () {
         Route::get('/positions', [PositionController::class, 'index'])->name('positions');
         Route::get('/history', [HistoryController::class, 'show'])->name('history');
         Route::get('/journal', [JournalController::class, 'index'])->name('journal');
+
+        // Expert Advisors (automated strategies)
+        Route::get('/experts/strategies', [ExpertAdvisorController::class, 'strategies'])->name('experts.strategies');
+        Route::get('/experts', [ExpertAdvisorController::class, 'index'])->name('experts.index');
+        Route::post('/experts', [ExpertAdvisorController::class, 'store'])->name('experts.store');
+        Route::post('/experts/{expert}/toggle', [ExpertAdvisorController::class, 'toggle'])->name('experts.toggle');
+        Route::delete('/experts/{expert}', [ExpertAdvisorController::class, 'destroy'])->name('experts.destroy');
         Route::get('/orders', [OrderController::class, 'index'])->name('orders.index');
         Route::post('/orders', [OrderController::class, 'store'])->name('orders.store');
         Route::post('/orders/{order}/cancel', [OrderController::class, 'cancel'])->name('orders.cancel');
