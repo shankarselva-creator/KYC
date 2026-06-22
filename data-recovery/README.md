@@ -127,6 +127,11 @@ desktop) shortcuts, and registers an uninstaller.
 
 ## Current limitations / roadmap
 
+- **Deep scan (carving) cannot recover original file names or folder paths** —
+  those live in filesystem metadata, which carving deliberately bypasses.
+  Carved files get generated names like `recovered_000123.jpg`, grouped by type
+  in the category sidebar. Use the **Undelete scan** (Deep scan unticked) to get
+  real names and paths when the filesystem is still intact.
 - FAT/exFAT undelete assumes contiguous allocation (deleted cluster chains are
   freed); fragmented deleted files may be partially recovered.
 - Carving uses fixed signature heuristics; fragmented files may be truncated.

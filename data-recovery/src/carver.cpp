@@ -158,11 +158,16 @@ void ScanCarve(Disk& disk, uint64_t startOffset, uint64_t length,
                 rf.deleted = true;
                 rf.resident = false;
                 rf.size = fileSize;
-                rf.source = L"Deep scan";
                 rf.extents.push_back(Extent{fileOff, fileSize});
+                // Carved files have no filesystem name/path; generate a clear
+                // sequential name and record the disk offset as the "source".
+                wchar_t src[48];
+                swprintf(src, 48, L"Deep scan @ 0x%llX",
+                         (unsigned long long)fileOff);
+                rf.source = src;
                 wchar_t nm[64];
-                swprintf(nm, 64, L"carved_%08llX.%s",
-                         (unsigned long long)fileOff, sig.ext);
+                swprintf(nm, 64, L"recovered_%06llu.%s",
+                         (unsigned long long)(found + 1), sig.ext);
                 rf.name = nm;
                 ++found;
                 if (onResult)
