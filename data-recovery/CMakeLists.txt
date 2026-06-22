@@ -10,6 +10,7 @@ add_executable(DataRecovery WIN32
     src/ntfs.cpp
     src/fat.cpp
     src/carver.cpp
+    src/metadata.cpp
     src/recovery.cpp
     src/preview.cpp
     src/self_install.cpp

@@ -15,7 +15,7 @@ echo "[2/2] Compiling and linking..."
 "$CXX" -std=c++17 -O2 -municode -mwindows \
     -DUNICODE -D_UNICODE \
     src/disk.cpp src/partition.cpp src/ntfs.cpp src/fat.cpp \
-    src/carver.cpp src/recovery.cpp src/preview.cpp \
+    src/carver.cpp src/metadata.cpp src/recovery.cpp src/preview.cpp \
     src/self_install.cpp src/gui.cpp \
     "$OUT/app.res" \
     -static -static-libgcc -static-libstdc++ \

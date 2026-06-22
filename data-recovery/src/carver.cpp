@@ -7,6 +7,7 @@
 // Signatures may include wildcard bytes (mask == 0) so container formats whose
 // magic is not at offset 0 (MP4/MOV "ftyp", RIFF "WAVE"/"AVI ") can be matched.
 #include "recovery.h"
+#include "metadata.h"
 #include <cstring>
 #include <algorithm>
 
@@ -165,9 +166,17 @@ void ScanCarve(Disk& disk, uint64_t startOffset, uint64_t length,
                 swprintf(src, 48, L"Deep scan @ 0x%llX",
                          (unsigned long long)fileOff);
                 rf.source = src;
-                wchar_t nm[64];
-                swprintf(nm, 64, L"recovered_%06llu.%s",
-                         (unsigned long long)(found + 1), sig.ext);
+                // Try to derive a friendly name from embedded metadata
+                // (ID3 title, PDF /Title, EXIF date); else use a sequence.
+                size_t avail = std::min<size_t>((size_t)(end - p),
+                                                2u * 1024 * 1024);
+                std::wstring title = DeriveCarvedName(sig.ext, p, avail);
+                wchar_t nm[128];
+                if (!title.empty())
+                    swprintf(nm, 128, L"%s.%s", title.c_str(), sig.ext);
+                else
+                    swprintf(nm, 128, L"recovered_%06llu.%s",
+                             (unsigned long long)(found + 1), sig.ext);
                 rf.name = nm;
                 ++found;
                 if (onResult)
