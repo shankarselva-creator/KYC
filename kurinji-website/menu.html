@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Explore the full menu at Kurinji Restaurant – starters, mains, biryanis, breads, desserts and drinks. Authentic South Indian cuisine." />
+  <title>Menu – Kurinji Restaurant</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <style>
+    .menu-section-block { margin-bottom: 60px; }
+    .menu-section-block h3 {
+      font-family: var(--font-head);
+      font-size: 1.5rem;
+      color: var(--primary);
+      margin-bottom: 6px;
+      padding-bottom: 10px;
+      border-bottom: 2px solid var(--border);
+    }
+    .menu-section-block .sub-desc { color: var(--gray); font-size: 0.88rem; margin-bottom: 24px; }
+    .menu-list-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      padding: 16px 0;
+      border-bottom: 1px solid var(--border);
+      gap: 20px;
+    }
+    .menu-list-item:last-child { border-bottom: none; }
+    .menu-list-left { flex: 1; }
+    .menu-list-name {
+      font-weight: 600;
+      color: var(--dark);
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .menu-list-desc { color: var(--gray); font-size: 0.87rem; line-height: 1.5; }
+    .menu-list-price { font-weight: 700; color: var(--primary); font-size: 1.05rem; white-space: nowrap; }
+    .dot-veg    { width: 12px; height: 12px; border: 2px solid #2e7d32; border-radius: 2px; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .dot-veg::before { content: ''; width: 6px; height: 6px; background: #2e7d32; border-radius: 50%; }
+    .dot-nonveg { width: 12px; height: 12px; border: 2px solid #c62828; border-radius: 2px; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .dot-nonveg::before { content: ''; width: 6px; height: 6px; background: #c62828; border-radius: 50%; }
+    .menu-legend { display: flex; gap: 20px; align-items: center; margin-bottom: 36px; font-size: 0.85rem; color: var(--gray); }
+    .menu-legend-item { display: flex; align-items: center; gap: 6px; }
+    .allergen-note {
+      background: #fff8e1;
+      border-left: 4px solid var(--secondary);
+      padding: 16px 20px;
+      border-radius: 0 8px 8px 0;
+      font-size: 0.87rem;
+      color: var(--dark);
+      margin-bottom: 40px;
+    }
+    .menu-category-nav {
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 20px 24px;
+      margin-bottom: 40px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+    }
+    .menu-category-nav strong { margin-right: 6px; font-size: 0.88rem; color: var(--gray); flex-basis: 100%; }
+    .menu-category-nav a {
+      padding: 6px 16px;
+      border-radius: 20px;
+      background: var(--light);
+      border: 1px solid var(--border);
+      font-size: 0.85rem;
+      color: var(--dark);
+      transition: var(--transition);
+    }
+    .menu-category-nav a:hover { background: var(--primary); color: #fff; border-color: var(--primary); }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="container">
+    <div class="nav-inner">
+      <a href="index.html" class="logo">
+        <div class="logo-icon">K</div>
+        <div class="logo-text">
+          <span>Kurinji</span>
+          <span>Restaurant</span>
+        </div>
+      </a>
+      <nav>
+        <ul>
+          <li><a href="index.html">Home</a></li>
+          <li><a href="menu.html" class="active">Menu</a></li>
+          <li><a href="about.html">About Us</a></li>
+          <li><a href="gallery.html">Gallery</a></li>
+          <li><a href="contact.html">Contact</a></li>
+        </ul>
+      </nav>
+      <div class="nav-reserve">
+        <a href="reservation.html" class="btn btn-primary">Reserve a Table</a>
+      </div>
+      <div class="hamburger"><span></span><span></span><span></span></div>
+    </div>
+  </div>
+</header>
+
+<section class="page-hero">
+  <div class="container">
+    <h1>Our Menu</h1>
+    <p>From crispy starters to indulgent desserts — a journey through South India's finest flavours</p>
+    <div class="breadcrumb">
+      <a href="index.html">Home</a>
+      <span>/</span>
+      <span>Menu</span>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <div class="menu-legend">
+      <div class="menu-legend-item"><span class="dot-veg"></span> Vegetarian</div>
+      <div class="menu-legend-item"><span class="dot-nonveg"></span> Non-Vegetarian</div>
+      <span style="margin-left:auto;">⭐ = Chef's Special</span>
+    </div>
+
+    <div class="allergen-note">
+      ⚠️ <strong>Allergen Notice:</strong> Our dishes may contain nuts, gluten, dairy, eggs and shellfish. Please inform your server of any allergies or dietary requirements before ordering. All prices are inclusive of VAT.
+    </div>
+
+    <div class="menu-category-nav">
+      <strong>Jump to:</strong>
+      <a href="#starters">Starters</a>
+      <a href="#soups">Soups</a>
+      <a href="#dosas">Dosas &amp; Idlis</a>
+      <a href="#mains">Main Course</a>
+      <a href="#biryani">Biryani &amp; Rice</a>
+      <a href="#breads">Breads</a>
+      <a href="#sides">Sides</a>
+      <a href="#desserts">Desserts</a>
+      <a href="#drinks">Drinks</a>
+    </div>
+
+    <!-- STARTERS -->
+    <div class="menu-section-block" id="starters">
+      <h3>🥗 Starters</h3>
+      <p class="sub-desc">Begin your journey with these tantalising appetisers</p>
+      <div class="menu-list-item">
+        <div class="menu-list-left">
+          <div class="menu-list-name"><span class="dot-veg"></span> Medu Vada</div>
+          <p class="menu-list-desc">Crispy fried lentil doughnuts seasoned with cumin, green chilli and curry leaves. Served with sambar and coconut chutney.</p>
+        </div>
+        <span class="menu-list-price">£4.99</span>
+      </div>
+      <div class="menu-list-item">
+        <div class="menu-list-left">
+          <div class="menu-list-name"><span class="dot-nonveg"></span> Chicken 65 ⭐</div>
+          <p class="menu-list-desc">Spicy deep-fried chicken marinated in red chilli, ginger-garlic paste, curry leaves and yoghurt.</p>
+        </div>
+        <span class="menu-list-price">£7.99</span>
+      </div>
+      <div class="menu-list-item">
+        <div class="menu-list-left">
+          <div class="menu-list-name"><span class="dot-nonveg"></span> Fish Fry</div>
+          <p class="menu-list-desc">Fresh fish fillets marinated in turmeric, red chilli and coriander, pan-fried to golden perfection.</p>
+        </div>
+        <span class="menu-list-price">£8.99</span>
+      </div>
+      <div class="menu-list-item">
+        <div class="menu-list-left">
+          <div class="menu-list-name"><span class="dot-veg"></span> Paneer Tikka</div>
+          <p class="menu-list-desc">Cubes of cottage cheese marinated in spiced yoghurt, grilled in a tandoor with peppers and onions.</p>
+        </div>
+        <span class="menu-list-price">£7.49</span>
+      </div>
+      <div class="menu-list-item">
+        <div class="menu-list-left">
+          <div class="menu-list-name"><span class="dot-nonveg"></span> Prawn Varuval</div>
+          <p class="menu-list-desc">Jumbo prawns tossed in a dry masala of shallots, tomatoes and black pepper. Coastal style.</p>
+        </div>
+        <span class="menu-list-price">£9.99</span>
+      </div>
+    </div>
+
+    <!-- SOUPS -->
+    <div class="menu-section-block" id="soups">
+      <h3>🍵 Soups &amp; Rasam</h3>
+      <p class="sub-desc">Warming broths and traditional tonics</p>
+      <div class="menu-list-item">
+        <div class="menu-list-left">
+          <div class="menu-list-name"><span class="dot-veg"></span> Tomato Rasam</div>
+          <p class="menu-list-desc">Thin tangy soup made with tamarind, tomatoes, black pepper and a tempering of mustard seeds.</p>
+        </div>
+        <span class="menu-list-price">£3.49</span>
+      </div>
+      <div class="menu-list-item">
+        <div class="menu-list-left">
+          <div class="menu-list-name"><span class="dot-nonveg"></span> Mutton Bone Soup</div>
+          <p class="menu-list-desc">Rich, slow-simmered mutton bone broth with fennel, cinnamon and black pepper. A comforting classic.</p>
+        </div>
+        <span class="menu-list-price">£5.99</span>
+      </div>
+    </div>
+
+    <!-- DOSAS -->
+    <div class="menu-section-block" id="dosas">
+      <h3>🫓 Dosas, Idlis &amp; Uttapam</h3>
+      <p class="sub-desc">South India's iconic breakfast dishes, served all day</p>
+      <div class="menu-list-item">
+        <div class="menu-list-left">
+          <div class="menu-list-name"><span class="dot-veg"></span> Plain Dosa</div>
+          <p class="menu-list-desc">Classic thin and crispy fermented rice crepe. Served with sambar and two chutneys.</p>
+        </div>
+        <span class="menu-list-price">£6.49</span>
+      </div>
+      <div class="menu-list-item">
+        <div class="menu-list-left">
+          <div class="menu-list-name"><span class="dot-veg"></span> Masala Dosa ⭐</div>
+          <p class="menu-list-desc">Golden crispy dosa filled with spiced potato and onion masala. Our most popular dish.</p>
+        </div>
+        <span class="menu-list-price">£8.99</span>
+      </div>
+      <div class="menu-list-item">
+        <div class="menu-list-left">
+          <div class="menu-list-name"><span class="dot-nonveg"></span> Egg Dosa</div>
+          <p class="menu-list-desc">Crispy dosa topped with a spiced egg scramble, onions and green chillies.</p>
+        </div>
+        <span class="menu-list-price">£8.49</span>
+      </div>
+      <div class="menu-list-item">
+        <div class="menu-list-left">
+          <div class="menu-list-name"><span class="dot-veg"></span> Idli (3 pieces)</div>
+          <p class="menu-list-desc">Soft steamed fermented rice cakes. Served with sambar, coconut chutney and tomato chutney.</p>
+        </div>
+        <span class="menu-list-price">£6.99</span>
+      </div>
+      <div class="menu-list-item">
+        <div class="menu-list-left">
+          <div class="menu-list-name"><span class="dot-veg"></span> Onion Uttapam</div>
+          <p class="menu-list-desc">Thick savoury pancake topped with onions, tomatoes, green chillies and coriander.</p>
+        </div>
+        <span class="menu-list-price">£7.99</span>
+      </div>
+    </div>
+
+    <!-- MAINS -->
+    <div class="menu-section-block" id="mains">
+      <h3>🍲 Main Course</h3>
+      <p class="sub-desc">Rich gravies and curries, slow-cooked with authentic spices</p>
+      <div class="menu-list-item">
+        <div class="menu-list-left">
+          <div class="menu-list-name"><span class="dot-veg"></span> Dal Tadka</div>
+          <p class="menu-list-desc">Yellow lentils tempered with ghee, mustard seeds, dried red chilli and asafoetida.</p>
+        </div>
+        <span class="menu-list-price">£8.49</span>
+      </div>
+      <div class="menu-list-item">
+        <div class="menu-list-left">
+          <div class="menu-list-name"><span class="dot-veg"></span> Sambar</div>
+          <p class="menu-list-desc">Classic tamarind-based lentil stew with mixed vegetables and freshly ground sambar powder.</p>
+        </div>
+        <span class="menu-list-price">£7.99</span>
+      </div>
+      <div class="menu-list-item">
+        <div class="menu-list-left">
+          <div class="menu-list-name"><span class="dot-nonveg"></span> Chettinad Chicken Curry ⭐</div>
+          <p class="menu-list-desc">Aromatic chicken curry with freshly ground Chettinad masala — kalpasi, marathi mokku, star anise.</p>
+        </div>
+        <span class="menu-list-price">£13.99</span>
+      </div>
+      <div class="menu-list-item">
+        <div class="menu-list-left">
+          <div class="menu-list-name"><span class="dot-nonveg"></span> Mutton Kulambu</div>
+          <p class="menu-list-desc">Tender mutton slow-cooked in a rich tamarind and tomato gravy with whole spices.</p>
+        </div>
+        <span class="menu-list-price">£15.99</span>
+      </div>
+      <div class="menu-list-item">
+        <div class="menu-list-left">
+          <div class="menu-list-name"><span class="dot-nonveg"></span> Fish Curry (Meen Kulambu) ⭐</div>
+          <p class="menu-list-desc">Traditional coastal fish curry with tamarind, kokum and freshly ground coconut masala.</p>
+        </div>
+        <span class="menu-list-price">£14.99</span>
+      </div>
+      <div class="menu-list-item">
+        <div class="menu-list-left">
+          <div class="menu-list-name"><span class="dot-nonveg"></span> Prawn Masala</div>
+          <p class="menu-list-desc">King prawns in a tangy onion-tomato gravy with coastal spices and fresh coriander.</p>
+        </div>
+        <span class="menu-list-price">£16.99</span>
+      </div>
+      <div class="menu-list-item">
+        <div class="menu-list-left">
+          <div class="menu-list-name"><span class="dot-veg"></span> Paneer Butter Masala</div>
+          <p class="menu-list-desc">Cottage cheese cubes in a creamy, mildly spiced tomato and butter sauce.</p>
+        </div>
+        <span class="menu-list-price">£11.99</span>
+      </div>
+    </div>
+
+    <!-- BIRYANI -->
+    <div class="menu-section-block" id="biryani">
+      <h3>🍚 Biryani &amp; Rice</h3>
+      <p class="sub-desc">Fragrant rice dishes slow-cooked in the dum style</p>
+      <div class="menu-list-item">
+        <div class="menu-list-left">
+          <div class="menu-list-name"><span class="dot-nonveg"></span> Kurinji Special Biryani ⭐</div>
+          <p class="menu-list-desc">Signature dum-cooked basmati rice with tender chicken or mutton, saffron, rose water and caramelised onions. Served with raita and salan.</p>
+        </div>
+        <span class="menu-list-price">from £14.99</span>
+      </div>
+      <div class="menu-list-item">
+        <div class="menu-list-left">
+          <div class="menu-list-name"><span class="dot-nonveg"></span> Thalappakatti Biryani</div>
+          <p class="menu-list-desc">Dindigul-style biryani with seeraga samba rice, succulent meat and freshly ground spices. Bold and aromatic.</p>
+        </div>
+        <span class="menu-list-price">£15.99</span>
+      </div>
+      <div class="menu-list-item">
+        <div class="menu-list-left">
+          <div class="menu-list-name"><span class="dot-veg"></span> Vegetable Biryani</div>
+          <p class="menu-list-desc">Fragrant basmati rice cooked with seasonal vegetables, whole spices and fresh herbs.</p>
+        </div>
+        <span class="menu-list-price">£11.99</span>
+      </div>
+      <div class="menu-list-item">
+        <div class="menu-list-left">
+          <div class="menu-list-name"><span class="dot-veg"></span> Lemon Rice</div>
+          <p class="menu-list-desc">Tangy rice tempered with mustard, peanuts, curry leaves and turmeric. A South Indian staple.</p>
+        </div>
+        <span class="menu-list-price">£7.99</span>
+      </div>
+    </div>
+
+    <!-- BREADS -->
+    <div class="menu-section-block" id="breads">
+      <h3>🫓 Breads &amp; Parotta</h3>
+      <p class="sub-desc">Freshly made every day in our kitchen</p>
+      <div class="menu-list-item">
+        <div class="menu-list-left">
+          <div class="menu-list-name"><span class="dot-veg"></span> Kerala Parotta</div>
+          <p class="menu-list-desc">Flaky, layered flatbread made with all-purpose flour, best paired with any curry.</p>
+        </div>
+        <span class="menu-list-price">£1.99</span>
+      </div>
+      <div class="menu-list-item">
+        <div class="menu-list-left">
+          <div class="menu-list-name"><span class="dot-veg"></span> Chapati</div>
+          <p class="menu-list-desc">Soft whole wheat flatbread, freshly made on the tawa.</p>
+        </div>
+        <span class="menu-list-price">£1.49</span>
+      </div>
+      <div class="menu-list-item">
+        <div class="menu-list-left">
+          <div class="menu-list-name"><span class="dot-nonveg"></span> Egg Kothu Parotta ⭐</div>
+          <p class="menu-list-desc">Shredded parotta stir-fried with eggs, onions, tomatoes and a fiery pepper sauce on a hot iron griddle.</p>
+        </div>
+        <span class="menu-list-price">£10.99</span>
+      </div>
+    </div>
+
+    <!-- SIDES -->
+    <div class="menu-section-block" id="sides">
+      <h3>🥗 Sides &amp; Accompaniments</h3>
+      <p class="sub-desc">The perfect complement to your main course</p>
+      <div class="menu-list-item">
+        <div class="menu-list-left">
+          <div class="menu-list-name"><span class="dot-veg"></span> Coconut Chutney</div>
+          <p class="menu-list-desc">Fresh coconut blended with green chillies, ginger and tempered with mustard seeds.</p>
+        </div>
+        <span class="menu-list-price">£1.99</span>
+      </div>
+      <div class="menu-list-item">
+        <div class="menu-list-left">
+          <div class="menu-list-name"><span class="dot-veg"></span> Raita</div>
+          <p class="menu-list-desc">Cool yoghurt mixed with cucumber, tomato, onion and cumin. Perfect with biryani.</p>
+        </div>
+        <span class="menu-list-price">£2.49</span>
+      </div>
+      <div class="menu-list-item">
+        <div class="menu-list-left">
+          <div class="menu-list-name"><span class="dot-veg"></span> Papadam (3 pieces)</div>
+          <p class="menu-list-desc">Crispy thin lentil wafers, served with mint chutney.</p>
+        </div>
+        <span class="menu-list-price">£1.99</span>
+      </div>
+    </div>
+
+    <!-- DESSERTS -->
+    <div class="menu-section-block" id="desserts">
+      <h3>🍮 Desserts</h3>
+      <p class="sub-desc">A sweet finish to your South Indian feast</p>
+      <div class="menu-list-item">
+        <div class="menu-list-left">
+          <div class="menu-list-name"><span class="dot-veg"></span> Semiya Payasam ⭐</div>
+          <p class="menu-list-desc">Creamy vermicelli pudding cooked in full-fat milk with cardamom, saffron and toasted cashews.</p>
+        </div>
+        <span class="menu-list-price">£4.99</span>
+      </div>
+      <div class="menu-list-item">
+        <div class="menu-list-left">
+          <div class="menu-list-name"><span class="dot-veg"></span> Gulab Jamun (3 pieces)</div>
+          <p class="menu-list-desc">Soft milk-solid dumplings soaked in rose and cardamom sugar syrup.</p>
+        </div>
+        <span class="menu-list-price">£4.49</span>
+      </div>
+      <div class="menu-list-item">
+        <div class="menu-list-left">
+          <div class="menu-list-name"><span class="dot-veg"></span> Halwa</div>
+          <p class="menu-list-desc">Rich semolina pudding cooked in ghee with sugar, saffron and dry fruits.</p>
+        </div>
+        <span class="menu-list-price">£4.49</span>
+      </div>
+      <div class="menu-list-item">
+        <div class="menu-list-left">
+          <div class="menu-list-name"><span class="dot-veg"></span> Ice Cream</div>
+          <p class="menu-list-desc">Choice of vanilla, mango, or rose flavour. Served with wafer.</p>
+        </div>
+        <span class="menu-list-price">£3.99</span>
+      </div>
+    </div>
+
+    <!-- DRINKS -->
+    <div class="menu-section-block" id="drinks">
+      <h3>🥤 Drinks</h3>
+      <p class="sub-desc">Refreshing beverages to complement your meal</p>
+      <div class="menu-list-item">
+        <div class="menu-list-left">
+          <div class="menu-list-name"><span class="dot-veg"></span> Mango Lassi ⭐</div>
+          <p class="menu-list-desc">Thick and creamy blend of fresh mango pulp and yoghurt. Chilled and refreshing.</p>
+        </div>
+        <span class="menu-list-price">£3.99</span>
+      </div>
+      <div class="menu-list-item">
+        <div class="menu-list-left">
+          <div class="menu-list-name"><span class="dot-veg"></span> Sweet / Salted Lassi</div>
+          <p class="menu-list-desc">Classic yoghurt-based drink, available sweet or salted with cumin.</p>
+        </div>
+        <span class="menu-list-price">£3.49</span>
+      </div>
+      <div class="menu-list-item">
+        <div class="menu-list-left">
+          <div class="menu-list-name"><span class="dot-veg"></span> Filter Coffee</div>
+          <p class="menu-list-desc">Traditional South Indian filter coffee — strong decoction mixed with hot frothed milk.</p>
+        </div>
+        <span class="menu-list-price">£2.99</span>
+      </div>
+      <div class="menu-list-item">
+        <div class="menu-list-left">
+          <div class="menu-list-name"><span class="dot-veg"></span> Masala Chai</div>
+          <p class="menu-list-desc">Spiced milk tea brewed with ginger, cardamom, cinnamon and cloves.</p>
+        </div>
+        <span class="menu-list-price">£2.49</span>
+      </div>
+      <div class="menu-list-item">
+        <div class="menu-list-left">
+          <div class="menu-list-name"><span class="dot-veg"></span> Fresh Lime Soda</div>
+          <p class="menu-list-desc">Freshly squeezed lime with soda water. Sweet, salted or mixed.</p>
+        </div>
+        <span class="menu-list-price">£2.99</span>
+      </div>
+      <div class="menu-list-item">
+        <div class="menu-list-left">
+          <div class="menu-list-name"><span class="dot-veg"></span> Soft Drinks</div>
+          <p class="menu-list-desc">Coca-Cola, Diet Coke, Sprite, Fanta, still or sparkling water.</p>
+        </div>
+        <span class="menu-list-price">£2.49</span>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<section class="cta-section">
+  <div class="container">
+    <h2>Fancy Dining In?</h2>
+    <p>Reserve your table and enjoy these dishes in our warm and welcoming restaurant.</p>
+    <div class="cta-btns">
+      <a href="reservation.html" class="btn btn-gold">Book a Table</a>
+      <a href="contact.html" class="btn btn-outline">Contact Us</a>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="container">
+    <div class="footer-grid">
+      <div class="footer-brand">
+        <div class="footer-logo">
+          <div class="logo-icon">K</div>
+          <span>Kurinji Restaurant</span>
+        </div>
+        <p>Authentic South Indian cuisine crafted with love, tradition and the finest ingredients.</p>
+        <div class="social-links">
+          <a href="#" class="social-link">f</a>
+          <a href="#" class="social-link">in</a>
+          <a href="#" class="social-link">tw</a>
+          <a href="#" class="social-link">yt</a>
+        </div>
+      </div>
+      <div class="footer-col">
+        <h4>Quick Links</h4>
+        <ul>
+          <li><a href="index.html">Home</a></li>
+          <li><a href="menu.html">Menu</a></li>
+          <li><a href="about.html">About Us</a></li>
+          <li><a href="gallery.html">Gallery</a></li>
+          <li><a href="reservation.html">Reservations</a></li>
+          <li><a href="contact.html">Contact</a></li>
+        </ul>
+      </div>
+      <div class="footer-col">
+        <h4>Opening Hours</h4>
+        <ul>
+          <li style="font-size:0.87rem;margin-bottom:8px;">Mon – Thu: 11:30am – 10:00pm</li>
+          <li style="font-size:0.87rem;margin-bottom:8px;">Fri – Sat: 11:30am – 11:00pm</li>
+          <li style="font-size:0.87rem;margin-bottom:8px;">Sunday: 12:00pm – 10:00pm</li>
+        </ul>
+      </div>
+      <div class="footer-col">
+        <h4>Contact Us</h4>
+        <div class="footer-contact-item"><span class="icon">📍</span><span>123 Spice Lane, Leicester, LE1 1AA</span></div>
+        <div class="footer-contact-item"><span class="icon">📞</span><span>+44 (0) 116 123 4567</span></div>
+        <div class="footer-contact-item"><span class="icon">✉️</span><span>info@kurinjirestaurant.com</span></div>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>© 2025 Kurinji Restaurant. All rights reserved.</span>
+    </div>
+  </div>
+</footer>
+
+<script src="js/main.js"></script>
+</body>
+</html>

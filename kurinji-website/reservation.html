@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Reserve a table at Kurinji Restaurant. Online booking available for lunch and dinner, 7 days a week." />
+  <title>Reserve a Table – Kurinji Restaurant</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+<header>
+  <div class="container">
+    <div class="nav-inner">
+      <a href="index.html" class="logo">
+        <div class="logo-icon">K</div>
+        <div class="logo-text">
+          <span>Kurinji</span>
+          <span>Restaurant</span>
+        </div>
+      </a>
+      <nav>
+        <ul>
+          <li><a href="index.html">Home</a></li>
+          <li><a href="menu.html">Menu</a></li>
+          <li><a href="about.html">About Us</a></li>
+          <li><a href="gallery.html">Gallery</a></li>
+          <li><a href="contact.html">Contact</a></li>
+        </ul>
+      </nav>
+      <div class="nav-reserve">
+        <a href="reservation.html" class="btn btn-primary active">Reserve a Table</a>
+      </div>
+      <div class="hamburger"><span></span><span></span><span></span></div>
+    </div>
+  </div>
+</header>
+
+<section class="page-hero">
+  <div class="container">
+    <h1>Reserve a Table</h1>
+    <p>Book your dining experience at Kurinji – we look forward to welcoming you</p>
+    <div class="breadcrumb">
+      <a href="index.html">Home</a>
+      <span>/</span>
+      <span>Reservations</span>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <div class="reservation-grid">
+
+      <!-- INFO PANEL -->
+      <div class="reservation-info">
+        <h3>Before You Book</h3>
+
+        <div class="info-card">
+          <h4>🕐 Opening Hours</h4>
+          <table class="hours-table">
+            <tr><td>Monday – Thursday</td><td>11:30am – 10:00pm</td></tr>
+            <tr><td>Friday – Saturday</td><td>11:30am – 11:00pm</td></tr>
+            <tr class="today"><td>Sunday</td><td>12:00pm – 10:00pm</td></tr>
+          </table>
+          <p style="font-size:0.82rem;color:var(--gray);margin-top:10px;">Last orders taken 30 minutes before closing.</p>
+        </div>
+
+        <div class="info-card">
+          <h4>📋 Reservation Policy</h4>
+          <ul style="font-size:0.88rem;color:var(--dark);">
+            <li style="margin-bottom:8px;">• Tables are held for 15 minutes after booking time</li>
+            <li style="margin-bottom:8px;">• For parties of 8+, please call us directly</li>
+            <li style="margin-bottom:8px;">• We accept walk-ins subject to availability</li>
+            <li style="margin-bottom:8px;">• Please inform us of any dietary requirements</li>
+            <li>• Cancellations: please notify us at least 2 hours in advance</li>
+          </ul>
+        </div>
+
+        <div class="info-card">
+          <h4>📞 Prefer to Call?</h4>
+          <p style="font-size:0.92rem;color:var(--dark);margin-bottom:8px;"><strong>+44 (0) 116 123 4567</strong></p>
+          <p style="font-size:0.85rem;color:var(--gray);">Our team is happy to help with bookings, special arrangements and group dining enquiries.</p>
+        </div>
+
+        <div class="info-card">
+          <h4>🎉 Special Occasions</h4>
+          <p style="font-size:0.88rem;color:var(--dark);">Celebrating a birthday, anniversary or hosting a corporate event? Let us know in the special requests field and we'll make it extra special.</p>
+        </div>
+      </div>
+
+      <!-- RESERVATION FORM -->
+      <div class="reservation-form-wrap">
+        <h3>Book Your Table</h3>
+        <form id="reservationForm">
+          <div class="form-row">
+            <div class="form-group">
+              <label for="firstName">First Name *</label>
+              <input type="text" id="firstName" name="firstName" placeholder="John" required />
+            </div>
+            <div class="form-group">
+              <label for="lastName">Last Name *</label>
+              <input type="text" id="lastName" name="lastName" placeholder="Smith" required />
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="email">Email Address *</label>
+              <input type="email" id="email" name="email" placeholder="john@example.com" required />
+            </div>
+            <div class="form-group">
+              <label for="phone">Phone Number *</label>
+              <input type="tel" id="phone" name="phone" placeholder="+44 7700 000000" required />
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="date">Date *</label>
+              <input type="date" id="date" name="date" required />
+            </div>
+            <div class="form-group">
+              <label for="time">Preferred Time *</label>
+              <select id="time" name="time" required>
+                <option value="">Select a time</option>
+                <optgroup label="Lunch">
+                  <option>11:30</option>
+                  <option>12:00</option>
+                  <option>12:30</option>
+                  <option>13:00</option>
+                  <option>13:30</option>
+                  <option>14:00</option>
+                  <option>14:30</option>
+                </optgroup>
+                <optgroup label="Dinner">
+                  <option>17:30</option>
+                  <option>18:00</option>
+                  <option>18:30</option>
+                  <option>19:00</option>
+                  <option>19:30</option>
+                  <option>20:00</option>
+                  <option>20:30</option>
+                  <option>21:00</option>
+                  <option>21:30</option>
+                </optgroup>
+              </select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="guests">Number of Guests *</label>
+              <select id="guests" name="guests" required>
+                <option value="">Select guests</option>
+                <option>1 person</option>
+                <option>2 people</option>
+                <option>3 people</option>
+                <option>4 people</option>
+                <option>5 people</option>
+                <option>6 people</option>
+                <option>7 people</option>
+                <option>8+ people (we'll call to confirm)</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="occasion">Occasion (optional)</label>
+              <select id="occasion" name="occasion">
+                <option value="">None / Regular dining</option>
+                <option>Birthday</option>
+                <option>Anniversary</option>
+                <option>Business Dinner</option>
+                <option>Family Gathering</option>
+                <option>Date Night</option>
+                <option>Other</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="dietary">Dietary Requirements</label>
+            <input type="text" id="dietary" name="dietary" placeholder="e.g. vegetarian, nut allergy, gluten free..." />
+          </div>
+          <div class="form-group">
+            <label for="requests">Special Requests</label>
+            <textarea id="requests" name="requests" placeholder="Any special arrangements, seating preferences, decorations..."></textarea>
+          </div>
+          <button type="submit" class="btn btn-primary form-submit">Confirm Reservation</button>
+          <p style="font-size:0.8rem;color:var(--gray);margin-top:12px;text-align:center;">
+            You'll receive a confirmation email within 30 minutes. By booking you agree to our reservation policy.
+          </p>
+        </form>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- CATERING CTA -->
+<section style="background:#fff;padding:60px 0;">
+  <div class="container" style="text-align:center;">
+    <h2 class="section-title">Planning a Larger Event?</h2>
+    <div class="divider"></div>
+    <p style="color:var(--gray);max-width:580px;margin:0 auto 32px;">Kurinji Catering brings the authentic flavours of South India to your wedding, corporate event or private party. We handle everything — from menu planning to service.</p>
+    <a href="contact.html" class="btn btn-primary">Enquire About Catering</a>
+  </div>
+</section>
+
+<footer>
+  <div class="container">
+    <div class="footer-grid">
+      <div class="footer-brand">
+        <div class="footer-logo">
+          <div class="logo-icon">K</div>
+          <span>Kurinji Restaurant</span>
+        </div>
+        <p>Authentic South Indian cuisine crafted with love, tradition and the finest ingredients.</p>
+        <div class="social-links">
+          <a href="#" class="social-link">f</a>
+          <a href="#" class="social-link">in</a>
+          <a href="#" class="social-link">tw</a>
+          <a href="#" class="social-link">yt</a>
+        </div>
+      </div>
+      <div class="footer-col">
+        <h4>Quick Links</h4>
+        <ul>
+          <li><a href="index.html">Home</a></li>
+          <li><a href="menu.html">Menu</a></li>
+          <li><a href="about.html">About Us</a></li>
+          <li><a href="gallery.html">Gallery</a></li>
+          <li><a href="reservation.html">Reservations</a></li>
+          <li><a href="contact.html">Contact</a></li>
+        </ul>
+      </div>
+      <div class="footer-col">
+        <h4>Opening Hours</h4>
+        <ul>
+          <li style="font-size:0.87rem;margin-bottom:8px;">Mon – Thu: 11:30am – 10:00pm</li>
+          <li style="font-size:0.87rem;margin-bottom:8px;">Fri – Sat: 11:30am – 11:00pm</li>
+          <li style="font-size:0.87rem;margin-bottom:8px;">Sunday: 12:00pm – 10:00pm</li>
+        </ul>
+      </div>
+      <div class="footer-col">
+        <h4>Contact Us</h4>
+        <div class="footer-contact-item"><span class="icon">📍</span><span>123 Spice Lane, Leicester, LE1 1AA</span></div>
+        <div class="footer-contact-item"><span class="icon">📞</span><span>+44 (0) 116 123 4567</span></div>
+        <div class="footer-contact-item"><span class="icon">✉️</span><span>info@kurinjirestaurant.com</span></div>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>© 2025 Kurinji Restaurant. All rights reserved.</span>
+    </div>
+  </div>
+</footer>
+
+<script src="js/main.js"></script>
+</body>
+</html>

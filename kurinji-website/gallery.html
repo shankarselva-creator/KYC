@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Browse the Kurinji Restaurant gallery – our delicious dishes, beautiful dining space and memorable events." />
+  <title>Gallery – Kurinji Restaurant</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <style>
+    .gallery-filter {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 40px;
+    }
+    .gallery-filter button {
+      padding: 10px 24px;
+      border-radius: 30px;
+      border: 2px solid var(--border);
+      background: transparent;
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--gray);
+      cursor: pointer;
+      transition: var(--transition);
+      font-family: var(--font-body);
+    }
+    .gallery-filter button:hover,
+    .gallery-filter button.active {
+      background: var(--primary);
+      border-color: var(--primary);
+      color: #fff;
+    }
+    .gallery-masonry {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+    }
+    .gallery-card {
+      border-radius: 10px;
+      overflow: hidden;
+      position: relative;
+      cursor: pointer;
+      transition: var(--transition);
+    }
+    .gallery-card:hover { transform: scale(1.02); box-shadow: var(--shadow); }
+    .gallery-card-inner {
+      aspect-ratio: 4/3;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 3.5rem;
+    }
+    .gallery-card.tall .gallery-card-inner { aspect-ratio: 3/4; }
+    .gallery-card-caption {
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      padding: 20px 16px 16px;
+      background: linear-gradient(transparent, rgba(0,0,0,0.7));
+      color: #fff;
+      font-size: 0.88rem;
+      font-weight: 500;
+      transform: translateY(100%);
+      transition: var(--transition);
+    }
+    .gallery-card:hover .gallery-card-caption { transform: translateY(0); }
+    .gallery-section-title {
+      font-family: var(--font-head);
+      font-size: 1.4rem;
+      color: var(--primary);
+      margin: 50px 0 20px;
+      padding-bottom: 10px;
+      border-bottom: 2px solid var(--border);
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="container">
+    <div class="nav-inner">
+      <a href="index.html" class="logo">
+        <div class="logo-icon">K</div>
+        <div class="logo-text">
+          <span>Kurinji</span>
+          <span>Restaurant</span>
+        </div>
+      </a>
+      <nav>
+        <ul>
+          <li><a href="index.html">Home</a></li>
+          <li><a href="menu.html">Menu</a></li>
+          <li><a href="about.html">About Us</a></li>
+          <li><a href="gallery.html" class="active">Gallery</a></li>
+          <li><a href="contact.html">Contact</a></li>
+        </ul>
+      </nav>
+      <div class="nav-reserve">
+        <a href="reservation.html" class="btn btn-primary">Reserve a Table</a>
+      </div>
+      <div class="hamburger"><span></span><span></span><span></span></div>
+    </div>
+  </div>
+</header>
+
+<section class="page-hero">
+  <div class="container">
+    <h1>Our Gallery</h1>
+    <p>A visual feast of our food, ambiance and the people who make Kurinji special</p>
+    <div class="breadcrumb">
+      <a href="index.html">Home</a>
+      <span>/</span>
+      <span>Gallery</span>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+
+    <div class="gallery-filter">
+      <button class="active">All</button>
+      <button>Food</button>
+      <button>Ambiance</button>
+      <button>Events</button>
+      <button>Behind the Scenes</button>
+    </div>
+
+    <!-- FOOD -->
+    <div class="gallery-section-title">🍛 Our Dishes</div>
+    <div class="gallery-masonry">
+      <div class="gallery-card" style="">
+        <div class="gallery-card-inner" style="background:linear-gradient(135deg,#f5e6cc,#e8a87c);">🍛</div>
+        <div class="gallery-card-caption">Chettinad Chicken Curry</div>
+      </div>
+      <div class="gallery-card tall">
+        <div class="gallery-card-inner" style="background:linear-gradient(135deg,#fff8e1,#ffe082);">🍚</div>
+        <div class="gallery-card-caption">Kurinji Special Biryani</div>
+      </div>
+      <div class="gallery-card">
+        <div class="gallery-card-inner" style="background:linear-gradient(135deg,#e8f5e9,#a5d6a7);">🫓</div>
+        <div class="gallery-card-caption">Crispy Masala Dosa</div>
+      </div>
+      <div class="gallery-card">
+        <div class="gallery-card-inner" style="background:linear-gradient(135deg,#fce4e4,#ef9a9a);">🍗</div>
+        <div class="gallery-card-caption">Chicken 65 Starter</div>
+      </div>
+      <div class="gallery-card">
+        <div class="gallery-card-inner" style="background:linear-gradient(135deg,#e8eaf6,#9fa8da);">🦐</div>
+        <div class="gallery-card-caption">Prawn Masala</div>
+      </div>
+      <div class="gallery-card tall">
+        <div class="gallery-card-inner" style="background:linear-gradient(135deg,#fce4e4,#f48fb1);">🍮</div>
+        <div class="gallery-card-caption">Semiya Payasam Dessert</div>
+      </div>
+      <div class="gallery-card">
+        <div class="gallery-card-inner" style="background:linear-gradient(135deg,#e0f7fa,#80deea);">🥗</div>
+        <div class="gallery-card-caption">Fresh Medu Vada</div>
+      </div>
+      <div class="gallery-card">
+        <div class="gallery-card-inner" style="background:linear-gradient(135deg,#f3e5f5,#ce93d8);">🥤</div>
+        <div class="gallery-card-caption">Mango Lassi</div>
+      </div>
+      <div class="gallery-card">
+        <div class="gallery-card-inner" style="background:linear-gradient(135deg,#fff3e0,#ffcc80);">☕</div>
+        <div class="gallery-card-caption">South Indian Filter Coffee</div>
+      </div>
+    </div>
+
+    <!-- AMBIANCE -->
+    <div class="gallery-section-title">🏮 Our Restaurant</div>
+    <div class="gallery-masonry">
+      <div class="gallery-card tall">
+        <div class="gallery-card-inner" style="background:linear-gradient(135deg,#1a0505,#5c1a1a);font-size:3rem;">🏮</div>
+        <div class="gallery-card-caption">Main Dining Hall</div>
+      </div>
+      <div class="gallery-card">
+        <div class="gallery-card-inner" style="background:linear-gradient(135deg,#2d1b00,#5d3a1a);">🕯️</div>
+        <div class="gallery-card-caption">Evening Candlelit Setting</div>
+      </div>
+      <div class="gallery-card">
+        <div class="gallery-card-inner" style="background:linear-gradient(135deg,#e8ddd0,#c4a882);">🌿</div>
+        <div class="gallery-card-caption">Private Dining Room</div>
+      </div>
+      <div class="gallery-card">
+        <div class="gallery-card-inner" style="background:linear-gradient(135deg,#fdf8f2,#e8c99a);">🪑</div>
+        <div class="gallery-card-caption">Comfortable Seating</div>
+      </div>
+      <div class="gallery-card tall">
+        <div class="gallery-card-inner" style="background:linear-gradient(135deg,#1a0505,#8b1a1a);">🎨</div>
+        <div class="gallery-card-caption">Traditional Tamil Decor</div>
+      </div>
+      <div class="gallery-card">
+        <div class="gallery-card-inner" style="background:linear-gradient(135deg,#0d1b2a,#1b4332);">🌙</div>
+        <div class="gallery-card-caption">Night-time Exterior</div>
+      </div>
+    </div>
+
+    <!-- EVENTS -->
+    <div class="gallery-section-title">🎉 Special Events</div>
+    <div class="gallery-masonry">
+      <div class="gallery-card">
+        <div class="gallery-card-inner" style="background:linear-gradient(135deg,#fff8e1,#ffd54f);">🎂</div>
+        <div class="gallery-card-caption">Birthday Celebrations</div>
+      </div>
+      <div class="gallery-card">
+        <div class="gallery-card-inner" style="background:linear-gradient(135deg,#fce4e4,#f48fb1);">💐</div>
+        <div class="gallery-card-caption">Anniversary Dinners</div>
+      </div>
+      <div class="gallery-card">
+        <div class="gallery-card-inner" style="background:linear-gradient(135deg,#e8f5e9,#81c784);">🎊</div>
+        <div class="gallery-card-caption">Corporate Events</div>
+      </div>
+      <div class="gallery-card">
+        <div class="gallery-card-inner" style="background:linear-gradient(135deg,#e8eaf6,#7986cb);">👰</div>
+        <div class="gallery-card-caption">Wedding Catering</div>
+      </div>
+      <div class="gallery-card">
+        <div class="gallery-card-inner" style="background:linear-gradient(135deg,#fff3e0,#ffb74d);">🪔</div>
+        <div class="gallery-card-caption">Diwali Festival Dinner</div>
+      </div>
+      <div class="gallery-card">
+        <div class="gallery-card-inner" style="background:linear-gradient(135deg,#e0f7fa,#4dd0e1);">🌸</div>
+        <div class="gallery-card-caption">Pongal Celebrations</div>
+      </div>
+    </div>
+
+    <!-- BEHIND THE SCENES -->
+    <div class="gallery-section-title">👨‍🍳 Behind the Scenes</div>
+    <div class="gallery-masonry">
+      <div class="gallery-card">
+        <div class="gallery-card-inner" style="background:linear-gradient(135deg,#1a1a1a,#4a4a4a);">🔥</div>
+        <div class="gallery-card-caption">Chef at the Stove</div>
+      </div>
+      <div class="gallery-card tall">
+        <div class="gallery-card-inner" style="background:linear-gradient(135deg,#2a1500,#6b3500);">🌶️</div>
+        <div class="gallery-card-caption">Fresh Spice Preparation</div>
+      </div>
+      <div class="gallery-card">
+        <div class="gallery-card-inner" style="background:linear-gradient(135deg,#1a2a1a,#2d5a27);">🌿</div>
+        <div class="gallery-card-caption">Herb Garden Sourcing</div>
+      </div>
+      <div class="gallery-card">
+        <div class="gallery-card-inner" style="background:linear-gradient(135deg,#3a1a00,#7a3a00);">🫕</div>
+        <div class="gallery-card-caption">Slow-Cooking Chettinad Curry</div>
+      </div>
+      <div class="gallery-card">
+        <div class="gallery-card-inner" style="background:linear-gradient(135deg,#2a2000,#5a4500);">🍯</div>
+        <div class="gallery-card-caption">Grinding Fresh Masala</div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<section class="cta-section">
+  <div class="container">
+    <h2>Love What You See?</h2>
+    <p>Come experience the sights, smells and tastes of Kurinji in person. Reserve your table today.</p>
+    <div class="cta-btns">
+      <a href="reservation.html" class="btn btn-gold">Book a Table</a>
+      <a href="menu.html" class="btn btn-outline">Browse Our Menu</a>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="container">
+    <div class="footer-grid">
+      <div class="footer-brand">
+        <div class="footer-logo">
+          <div class="logo-icon">K</div>
+          <span>Kurinji Restaurant</span>
+        </div>
+        <p>Authentic South Indian cuisine crafted with love, tradition and the finest ingredients.</p>
+        <div class="social-links">
+          <a href="#" class="social-link">f</a>
+          <a href="#" class="social-link">in</a>
+          <a href="#" class="social-link">tw</a>
+          <a href="#" class="social-link">yt</a>
+        </div>
+      </div>
+      <div class="footer-col">
+        <h4>Quick Links</h4>
+        <ul>
+          <li><a href="index.html">Home</a></li>
+          <li><a href="menu.html">Menu</a></li>
+          <li><a href="about.html">About Us</a></li>
+          <li><a href="gallery.html">Gallery</a></li>
+          <li><a href="reservation.html">Reservations</a></li>
+          <li><a href="contact.html">Contact</a></li>
+        </ul>
+      </div>
+      <div class="footer-col">
+        <h4>Opening Hours</h4>
+        <ul>
+          <li style="font-size:0.87rem;margin-bottom:8px;">Mon – Thu: 11:30am – 10:00pm</li>
+          <li style="font-size:0.87rem;margin-bottom:8px;">Fri – Sat: 11:30am – 11:00pm</li>
+          <li style="font-size:0.87rem;margin-bottom:8px;">Sunday: 12:00pm – 10:00pm</li>
+        </ul>
+      </div>
+      <div class="footer-col">
+        <h4>Contact Us</h4>
+        <div class="footer-contact-item"><span class="icon">📍</span><span>123 Spice Lane, Leicester, LE1 1AA</span></div>
+        <div class="footer-contact-item"><span class="icon">📞</span><span>+44 (0) 116 123 4567</span></div>
+        <div class="footer-contact-item"><span class="icon">✉️</span><span>info@kurinjirestaurant.com</span></div>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>© 2025 Kurinji Restaurant. All rights reserved.</span>
+    </div>
+  </div>
+</footer>
+
+<script src="js/main.js"></script>
+</body>
+</html>
